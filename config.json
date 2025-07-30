@@ -1,0 +1,37 @@
+{
+  "architectures": [
+    "boson_preprocessor_mlp",
+    "cnn_boson_mlp",
+    "boson_decoder",
+    "boson_layer_nn",
+    "dual_path_cnn_boson",
+    "boson_pca_classifier",
+    "variational_boson_ae"
+  ],
+  "datasets": [
+    "mnist",
+    "fashion-mnist",
+    "cifar10",
+    "cifar100"
+  ],
+  "num_epochs": 50,
+  "output_dir": "./results",
+  "data_root": "./data",
+  "num_workers": 2,
+  "hyperparameter_ranges": {
+    "learning_rates": [1e-4, 5e-4, 1e-3, 5e-3],
+    "optimizers": ["adam", "sgd"],
+    "batch_sizes": [32, 64, 128],
+    "network_depths": [2, 3, 4],
+    "dropout_rates": [0.1, 0.2, 0.3],
+    "weight_decay": [1e-5, 1e-4, 1e-3]
+  },
+  "default_hyperparams": {
+    "learning_rate": 1e-3,
+    "optimizer": "adam",
+    "batch_size": 64,
+    "network_depth": 3,
+    "dropout_rate": 0.2,
+    "weight_decay": 1e-4
+  }
+}
