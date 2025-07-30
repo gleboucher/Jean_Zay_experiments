@@ -9,9 +9,36 @@ from sklearn.preprocessing import StandardScaler
 from typing import Dict, Any, List, Tuple, Optional
 import warnings
 from merlin import QuantumLayer, OutputMappingStrategy
-from Boson_samplers
+from Architectures.Boson_samplers import BosonSampler
+import perceval as pcvl
 
 
+
+def create_quantum_circuit(m):
+    # 1. Left interferometer - trainable transformation
+    wl = pcvl.GenericInterferometer(
+        m,
+        lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_li{i}")) //
+                 pcvl.BS() // pcvl.PS(pcvl.P(f"theta_lo{i}")),
+        shape=pcvl.InterferometerShape.RECTANGLE
+    )
+
+    # 2. Input encoding - maps classical data to quantum parameters
+    c_var = pcvl.Circuit(m)
+    for i in range(4):  # 4 input features
+        px = pcvl.P(f"px{i + 1}")
+        c_var.add(i + (m - 4) // 2, pcvl.PS(px))
+
+    # 3. Right interferometer - trainable transformation
+    wr = pcvl.GenericInterferometer(
+        m,
+        lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ri{i}")) //
+                 pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ro{i}")),
+        shape=pcvl.InterferometerShape.RECTANGLE
+    )
+
+    # Combine all components
+    return wl // c_var // wr
 
 
 
@@ -24,15 +51,16 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
                  pca_components: int = 64, dropout_rate: float = 0.2):
         super().__init__()
         self.input_norm = nn.BatchNorm1d(input_dim)
+        circuit = create_quantum_circuit(input_dim)
+        input_state = [1] * 3 + [0] * (input_dim - 3)
         self.boson_replacement = QuantumLayer(
                     input_size=input_dim,
                     output_size=None,
                     circuit=circuit,
-                    n_photons=N,
                     input_state=input_state,# Random Initial quantum state used only for initialization
                     output_mapping_strategy=OutputMappingStrategy.NONE,
-                    input_parameters=["phi"],# Optional: Specify device
-                    trainable_parameters=[],
+                    input_parameters=["px"],# Optional: Specify device
+                    trainable_parameters=["theta"],
                     shots=1000,  # Optional: Enable quantum measurement sampling
                     no_bunching=True,
                     sampling_method='multinomial', # Optional: Specify sampling method
@@ -364,7 +392,7 @@ HYPERPARAMETERS = {
     'batch_sizes': [16, 32, 64, 128],
     'network_depths': [2, 3, 4, 5, 6],
     'dropout_rates': [0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
-    'weight_decay': [1e-6, 1e-5, 1e-4, 1e-3, 1e-2]
+    'weight_decay': [1e-6, 1e-5, 1e-4, 1e-3, 1e-2],
     'output_mapping': [OutputMappingStrategy.NONE, OutputMappingStrategy.LINEAR, OutputMappingStrategy.LEXGROUPING]
 }
 
