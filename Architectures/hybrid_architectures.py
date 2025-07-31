@@ -36,6 +36,7 @@ def create_quantum_circuit(m):
                  pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ro{i}")),
         shape=pcvl.InterferometerShape.RECTANGLE
     )
+    print("Quantum Circuit created")
 
     # Combine all components
     return wl // c_var // wr
@@ -81,6 +82,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
             prev_dim = hidden_dim
         mlp_layers.append(nn.Linear(prev_dim, num_classes))
         self.mlp = nn.Sequential(*mlp_layers)
+        print("mlp defined")
         
     def forward(self, x):
         batch_size = x.size(0)
@@ -438,5 +440,5 @@ def get_architecture(arch_name: str, input_shape: Tuple[int, ...], num_classes: 
     
     if arch_name not in architectures:
         raise ValueError(f"Unknown architecture: {arch_name}")
-        
+    
     return architectures[arch_name]()
