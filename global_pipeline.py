@@ -265,6 +265,7 @@ class HybridTrainer:
         train_dataset, test_dataset, input_shape, num_classes = DatasetLoader.load_dataset(
             dataset_name, self.config['data_root']
         )
+        print("dataset loaded")
         
         train_loader = DataLoader(
             train_dataset, batch_size=hyperparams['batch_size'], 
@@ -274,19 +275,20 @@ class HybridTrainer:
             test_dataset, batch_size=hyperparams['batch_size'], 
             shuffle=False, num_workers=self.config.get('num_workers', 2)
         )
-        
+        print("dataloader created")
         # Create model
         model_config = {
             'dropout_rate': hyperparams['dropout_rate'],
             'hidden_dims': [128] * hyperparams['network_depth']
         }
-        
+
         model = get_architecture(architecture_name, input_shape, num_classes, model_config)
         model = model.to(self.device)
-        
+        print("model defined")
         # Fit PCA if needed
+
         self.fit_pca_components(model, train_loader)
-        
+        print("pca fitted")
         # Setup optimizer and loss
         if hyperparams['optimizer'] == 'adam':
             optimizer = optim.Adam(
@@ -307,10 +309,11 @@ class HybridTrainer:
                 lr=hyperparams['learning_rate'],
                 weight_decay=hyperparams['weight_decay']
             )
+        print("optimizer defined")
         
         criterion = nn.CrossEntropyLoss()
         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
-        
+        print("scheduler defined")
         # Training loop
         best_accuracy = 0.0
         results = {
