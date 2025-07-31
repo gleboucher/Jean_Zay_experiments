@@ -228,6 +228,8 @@ class HybridTrainer:
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
             total += target.size(0)
+            if batch_idx % 100 == 5:
+                print("Reaching batch index", batch_idx)
         
         accuracy = 100. * correct / total
         avg_loss = total_loss / len(train_loader)
@@ -326,6 +328,7 @@ class HybridTrainer:
         start_time = time.time()
         
         for epoch in range(self.config['num_epochs']):
+            print("Starting training")
             # Train
             train_loss, train_acc = self.train_epoch(model, train_loader, optimizer, criterion)
             
@@ -344,9 +347,9 @@ class HybridTrainer:
             
             scheduler.step()
             
-            if epoch % 10 == 0 or epoch == self.config['num_epochs'] - 1:
-                print(f'Epoch {epoch}: Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%, '
-                      f'Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%')
+
+            print(f'Epoch {epoch}: Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%, '
+                  f'Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%')
         
         results['training_time'] = time.time() - start_time
         print(f"Training completed. Best accuracy: {best_accuracy:.2f}%")
