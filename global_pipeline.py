@@ -281,7 +281,7 @@ class HybridTrainer:
             'dropout_rate': hyperparams['dropout_rate'],
             'hidden_dims': [128] * hyperparams['network_depth']
         }
-
+        print("model config done")
         model = get_architecture(architecture_name, input_shape, num_classes, model_config)
         model = model.to(self.device)
         print("model defined")
