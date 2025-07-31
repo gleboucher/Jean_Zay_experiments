@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from torch.utils.data import Dataset
 import numpy as np
 import time
 import os
@@ -16,6 +17,37 @@ from itertools import product
 from copy import deepcopy
 
 from Architectures.hybrid_architectures import get_architecture
+
+
+class MNISTFromNPZ(Dataset):
+    def __init__(self, npz_path, train=True, transform=None):
+        data = np.load(npz_path)
+        self.transform = transform
+        if train:
+            self.images = data['x_train']
+            self.labels = data['y_train']
+        else:
+            self.images = data['x_test']
+            self.labels = data['y_test']
+
+        # Ensure proper shape and type
+        self.images = self.images.astype(np.float32) / 255.0  # Normalize to [0,1]
+        if self.images.ndim == 3:
+            self.images = np.expand_dims(self.images, 1)  # Add channel dimension (1, 28, 28)
+
+        self.labels = self.labels.astype(np.int64)
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        image = torch.from_numpy(self.images[idx])
+        label = torch.tensor(self.labels[idx], dtype=torch.long)
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, label
 
 
 class DatasetLoader:
@@ -95,10 +127,12 @@ class DatasetLoader:
         
         train_transform = DatasetLoader.get_transform(dataset_name, is_training=True)
         test_transform = DatasetLoader.get_transform(dataset_name, is_training=False)
+
         
         if dataset_name == 'mnist':
-            train_dataset = datasets.MNIST(data_root, train=True, download=True, transform=train_transform)
-            test_dataset = datasets.MNIST(data_root, train=False, transform=test_transform)
+            npz_path =  os.environ['DSDIR'] + '/MNIST/mnist.npz'
+            train_dataset = MNISTFromNPZ(npz_path, train=True)
+            test_dataset = MNISTFromNPZ(npz_path, train=False)
             input_shape = (1, 28, 28)
             num_classes = 10
             
