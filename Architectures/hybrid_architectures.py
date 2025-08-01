@@ -16,6 +16,7 @@ import perceval as pcvl
 
 def create_quantum_circuit(m):
     # 1. Left interferometer - trainable transformation
+
     wl = pcvl.GenericInterferometer(
         m,
         lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_li{i}")) //
@@ -49,11 +50,12 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
     Modified: Data → Normalization → Linear → PCA → MLP
     """
     def __init__(self, input_dim: int, num_classes: int, hidden_dims: List[int] = [256, 128], 
-                 pca_components: int = 64, dropout_rate: float = 0.2):
+                 pca_components: int = 64, dropout_rate: float = 0.2, m = 12):
         super().__init__()
         print("initializing MLP")
         self.input_norm = nn.BatchNorm1d(input_dim)
-        circuit = create_quantum_circuit(input_dim)
+        circuit = create_quantum_circuit(m)
+        print("Circuit created")
         input_state = [1] * 3 + [0] * (input_dim - 3)
         self.boson_replacement = QuantumLayer(
                     input_size=input_dim,
@@ -63,10 +65,8 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
                     output_mapping_strategy=OutputMappingStrategy.NONE,
                     input_parameters=["px"],# Optional: Specify device
                     trainable_parameters=["theta"],
-                    shots=1000,  # Optional: Enable quantum measurement sampling
                     no_bunching=True,
-                    sampling_method='multinomial', # Optional: Specify sampling method
-                )(input_dim, hidden_dims[0])
+                )
         self.pca_components = pca_components
         self.pca = None  # Will be fitted during training
         
