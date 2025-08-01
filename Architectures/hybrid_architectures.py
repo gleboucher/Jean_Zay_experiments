@@ -63,7 +63,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
                     circuit=circuit,
                     input_state=input_state,# Random Initial quantum state used only for initialization
                     output_mapping_strategy=OutputMappingStrategy.NONE,
-                    input_parameters=["px"],# Optional: Specify device
+                    input_parameters=["px"],
                     trainable_parameters=["theta"],
                     no_bunching=True,
                 )
