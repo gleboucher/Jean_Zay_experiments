@@ -184,6 +184,7 @@ class HybridTrainer:
             
             # Collect features for PCA fitting
             features = []
+            torch_features = []
             with torch.no_grad():
                 for batch_idx, (data, _) in enumerate(train_loader):
                     if batch_idx > 50:  # Use subset for PCA fitting
@@ -191,16 +192,17 @@ class HybridTrainer:
                     data = data.to(self.device)
                     batch_size = data.size(0)
                     data_flat = data.view(batch_size, -1)
+                    torch_features.append(data_flat)
                     features.append(data_flat.cpu().numpy())
             
             features = np.vstack(features)
-            
+            torch_features = torch.cat(torch_features, dim=0)
             # Fit scaler and PCA
             if hasattr(model, 'scaler'):
                 model.scaler.fit(features)
                 features_scaled = model.scaler.transform(features)
             if hasattr(model, 'scaler_torch'):
-                model.scaler.fit(features)
+                model.scaler.fit(torch_features)
                 features_scaled = model.scaler.transform(features)
             else:
                 features_scaled = features

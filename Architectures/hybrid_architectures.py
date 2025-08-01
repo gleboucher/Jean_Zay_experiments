@@ -12,7 +12,40 @@ from merlin import QuantumLayer, OutputMappingStrategy
 from Architectures.Boson_samplers import BosonSampler
 import perceval as pcvl
 
+class MinMaxNorm1d(nn.Module):
+    def __init__(self, num_features, momentum=0.1, eps=1e-8):
+        super().__init__()
+        self.num_features = num_features
+        self.momentum = momentum
+        self.eps = eps
 
+        # Running stats (like in BatchNorm)
+        self.register_buffer('running_min', torch.zeros(1, num_features))
+        self.register_buffer('running_max', torch.ones(1, num_features))
+
+    def forward(self, x):
+        if x.dim() != 2:
+            raise ValueError(f"Expected 2D input (batch, features), got {x.shape}")
+
+        if self.training:
+            batch_min = x.min(dim=0, keepdim=True).values
+            batch_max = x.max(dim=0, keepdim=True).values
+
+            # Update running stats
+            self.running_min = (1 - self.momentum) * self.running_min + self.momentum * batch_min
+            self.running_max = (1 - self.momentum) * self.running_max + self.momentum * batch_max
+
+            min_val = batch_min
+            max_val = batch_max
+        else:
+            # Use running stats at inference
+            min_val = self.running_min
+            max_val = self.running_max
+
+        # Min-max normalize
+        out = (x - min_val) / (max_val - min_val + self.eps)
+        out = out.clamp(0.0, 1.0)
+        return out
 
 def create_quantum_circuit(m):
     # 1. Left interferometer - trainable transformation
@@ -43,43 +76,6 @@ def create_quantum_circuit(m):
     return wl // c_var // wr
 
 
-class MinMaxScaler(torch.nn.Module):
-    def __init__(self, feature_range=(0, 1)):
-        super().__init__()
-        self.min_val = None
-        self.max_val = None
-        self.feature_range = feature_range
-
-    def fit(self, data):
-        """Compute min and max for each feature."""
-        self.min_val = data.min(dim=0, keepdim=True).values
-        self.max_val = data.max(dim=0, keepdim=True).values
-
-    def transform(self, data):
-        """Apply min-max scaling."""
-        if self.min_val is None or self.max_val is None:
-            raise ValueError("Call `fit` before `transform`.")
-
-        scale = self.feature_range[1] - self.feature_range[0]
-        min_range = self.feature_range[0]
-        max_range = self.feature_range[1]
-
-        normalized = (data - self.min_val) / (self.max_val - self.min_val + 1e-8)
-        normalized[normalized < min_range] = min_range
-        normalized[normalized >= max_range] = min_range
-        return normalized * scale + min_range
-
-    def inverse_transform(self, data_scaled):
-        """Revert the normalization."""
-        if self.min_val is None or self.max_val is None:
-            raise ValueError("Call `fit` before `inverse_transform`.")
-
-        scale = self.feature_range[1] - self.feature_range[0]
-        min_range = self.feature_range[0]
-
-        unscaled = (data_scaled - min_range) / (scale + 1e-8)
-        return unscaled * (self.max_val - self.min_val + 1e-8) + self.min_val
-
 
 class Architecture1_BosonPreprocessor_MLP(nn.Module):
     """
@@ -90,10 +86,10 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
                  pca_components: int = 16, dropout_rate: float = 0.2):
         super().__init__()
 
-        self.scaler = MinMaxScaler()
+
         self.input_norm = nn.BatchNorm1d(input_dim)
         circuit = create_quantum_circuit(pca_components)
-
+        self.quantum_norm = MinMaxNorm1d(pca_components)
         input_state = [1] * 3 + [0] * (pca_components - 3)
         self.boson_replacement = QuantumLayer(
                     input_size=pca_components,
@@ -136,7 +132,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
             x_np = x.detach().cpu().numpy()
             x_pca = self.pca.transform(x_np)
             x = torch.tensor(x_pca, dtype=torch.float32, device=x.device)
-        x = self.scaler.transform(x)
+        x = self.quantum_norm(x)
         x = self.boson_replacement(x)
         return self.mlp(x)
 
@@ -150,7 +146,6 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
                  mlp_hidden: int = 128, dropout_rate: float = 0.2, n_photons=3):
         super().__init__()
         self.input_norm = nn.BatchNorm2d(input_channels)
-        self.scaler = MinMaxScaler()
         self.n_photons = n_photons
         # CNN layers
         cnn_layers = []
@@ -164,7 +159,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
             ])
             prev_channels = channels
         self.cnn = nn.Sequential(*cnn_layers)
-        
+
         # Calculate CNN output size (assuming input is square)
         self.cnn_output_size = None
         
@@ -188,6 +183,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
 
             input_state = [1] * self.n_photons + [0] * (self.cnn_output_size - self.n_photons)
             print("CNN OUTPUT SIZE", self.cnn_output_size)
+            self.quantum_norm = MinMaxNorm1d(self.cnn_output_size)
             self.quantum = QuantumLayer(
                 input_size=self.cnn_output_size,
                 output_size=None,
@@ -208,7 +204,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
 
         
         x = x.view(x.size(0), -1)
-        x = self.scaler.transform(x)
+        x = self.quantum_norm(x)
         x = self.quantum(x)
         return self.mlp(x)
 
@@ -222,7 +218,6 @@ class Architecture3_Boson_Decoder(nn.Module):
                  decoder_hidden: List[int] = [128, 256], dropout_rate: float = 0.2):
         super().__init__()
         self.input_norm = nn.BatchNorm1d(input_dim)
-        self.scaler = MinMaxScaler()
         circuit = create_quantum_circuit(input_dim)
         self.boson_replacement = BosonSamplerReplacement(input_dim, latent_dim, dropout_rate=dropout_rate)
         
@@ -266,7 +261,6 @@ class Architecture4_Boson_Layer_NN(nn.Module):
         circuit = create_quantum_circuit(hidden_dim)
 
         input_state = [1] * n_photons + [0] * (hidden_dim - n_photons)
-        self.scaler = MinMaxScaler()
         self.quantum = QuantumLayer(
             input_size=hidden_dim,
             output_size=None,
@@ -278,6 +272,7 @@ class Architecture4_Boson_Layer_NN(nn.Module):
             no_bunching=True,
             device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         )
+        self.quantum_norm = MinMaxNorm1d(hidden_dim)
         self.dense2 = nn.Sequential(
             nn.BatchNorm1d(boson_dim),
             nn.ReLU(),
@@ -290,7 +285,7 @@ class Architecture4_Boson_Layer_NN(nn.Module):
         x = x.view(batch_size, -1)
         x = self.input_norm(x)
         x = self.dense1(x)
-        x = self.scaler.transform(x)
+        x = self.quantum_norm(x)
         x = self.quantum(x)
         return self.dense2(x)
 
@@ -437,7 +432,7 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
         circuit = create_quantum_circuit(prev_dim)
 
         input_state = [1] * n_photons + [0] * (prev_dim - n_photons)
-        self.scaler = MinMaxScaler()
+        self.quantum_norm = MinMaxNorm1d(prev_dim)
         self.quantum = QuantumLayer(
             input_size=prev_dim,
             output_size=None,
@@ -469,6 +464,7 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
         x = x.view(batch_size, -1)
         x = self.input_norm(x)
         encoded = self.encoder(x)
+        encoded = self.quantum_norm(encoded)
         latent = self.quantum(encoded)
         return self.decoder(latent)
 
