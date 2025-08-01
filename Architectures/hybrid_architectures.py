@@ -52,10 +52,10 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
     def __init__(self, input_dim: int, num_classes: int, hidden_dims: List[int] = [256, 128], 
                  pca_components: int = 16, dropout_rate: float = 0.2):
         super().__init__()
-        print("initializing MLP")
+
         self.input_norm = nn.BatchNorm1d(input_dim)
         circuit = create_quantum_circuit(pca_components)
-        print("Circuit created")
+
         input_state = [1] * 3 + [0] * (pca_components - 3)
         self.boson_replacement = QuantumLayer(
                     input_size=pca_components,
@@ -75,7 +75,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
         # MLP after PCA
         mlp_layers = []
         prev_dim = self.boson_replacement.output_size
-        print(prev_dim)
+
         for hidden_dim in hidden_dims[1:]:
             mlp_layers.extend([
                 nn.Linear(prev_dim, hidden_dim),
@@ -86,7 +86,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
             prev_dim = hidden_dim
         mlp_layers.append(nn.Linear(prev_dim, num_classes))
         self.mlp = nn.Sequential(*mlp_layers)
-        print("mlp defined")
+
         
     def forward(self, x):
         batch_size = x.size(0)
@@ -417,7 +417,7 @@ def get_architecture(arch_name: str, input_shape: Tuple[int, ...], num_classes: 
     else:  # Flattened input
         input_dim = input_shape[0]
         input_channels = input_shape[0] if len(input_shape) == 1 else input_shape[0]
-    print('preparing architectures')
+
     architectures = {
         'boson_preprocessor_mlp': lambda: Architecture1_BosonPreprocessor_MLP(
             input_dim, num_classes, **config
