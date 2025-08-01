@@ -26,9 +26,9 @@ def create_quantum_circuit(m):
 
     # 2. Input encoding - maps classical data to quantum parameters
     c_var = pcvl.Circuit(m)
-    for i in range(4):  # 4 input features
+    for i in range(m):  # 4 input features
         px = pcvl.P(f"px{i + 1}")
-        c_var.add(i + (m - 4) // 2, pcvl.PS(px))
+        c_var.add(i, pcvl.PS(px))
 
     # 3. Right interferometer - trainable transformation
     wr = pcvl.GenericInterferometer(
@@ -50,15 +50,15 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
     Modified: Data → Normalization → Linear → PCA → MLP
     """
     def __init__(self, input_dim: int, num_classes: int, hidden_dims: List[int] = [256, 128], 
-                 pca_components: int = 64, dropout_rate: float = 0.2, m = 12):
+                 pca_components: int = 16, dropout_rate: float = 0.2):
         super().__init__()
         print("initializing MLP")
         self.input_norm = nn.BatchNorm1d(input_dim)
-        circuit = create_quantum_circuit(m)
+        circuit = create_quantum_circuit(pca_components)
         print("Circuit created")
         input_state = [1] * 3 + [0] * (input_dim - 3)
         self.boson_replacement = QuantumLayer(
-                    input_size=input_dim,
+                    input_size=pca_components,
                     output_size=None,
                     circuit=circuit,
                     input_state=input_state,# Random Initial quantum state used only for initialization
@@ -67,6 +67,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
                     trainable_parameters=["theta"],
                     no_bunching=True,
                 )
+        print(len(self.boson_replacement.parameters()))
         self.pca_components = pca_components
         self.pca = None  # Will be fitted during training
         
@@ -89,14 +90,12 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
         batch_size = x.size(0)
         x = x.view(batch_size, -1)
         x = self.input_norm(x)
-        x = self.boson_replacement(x)
-        
         # Apply PCA (in eval mode or after fitting)
         if self.pca is not None:
             x_np = x.detach().cpu().numpy()
             x_pca = self.pca.transform(x_np)
             x = torch.tensor(x_pca, dtype=torch.float32, device=x.device)
-        
+        x = self.boson_replacement(x)
         return self.mlp(x)
 
 
