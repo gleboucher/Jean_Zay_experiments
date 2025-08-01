@@ -56,7 +56,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
         self.input_norm = nn.BatchNorm1d(input_dim)
         circuit = create_quantum_circuit(pca_components)
         print("Circuit created")
-        input_state = [1] * 3 + [0] * (input_dim - 3)
+        input_state = [1] * 3 + [0] * (pca_components - 3)
         self.boson_replacement = QuantumLayer(
                     input_size=pca_components,
                     output_size=None,
@@ -67,7 +67,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
                     trainable_parameters=["theta"],
                     no_bunching=True,
                 )
-        print(len(self.boson_replacement.parameters()))
+
         self.pca_components = pca_components
         self.pca = None  # Will be fitted during training
         
