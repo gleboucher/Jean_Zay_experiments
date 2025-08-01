@@ -199,6 +199,9 @@ class HybridTrainer:
             if hasattr(model, 'scaler'):
                 model.scaler.fit(features)
                 features_scaled = model.scaler.transform(features)
+            if hasattr(model, 'scaler_torch'):
+                model.scaler.fit(features)
+                features_scaled = model.scaler.transform(features)
             else:
                 features_scaled = features
             
@@ -228,8 +231,7 @@ class HybridTrainer:
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
             total += target.size(0)
-            if batch_idx % 100 == 5:
-                print("Reaching batch index", batch_idx)
+
         
         accuracy = 100. * correct / total
         avg_loss = total_loss / len(train_loader)

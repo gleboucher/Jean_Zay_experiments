@@ -37,11 +37,48 @@ def create_quantum_circuit(m):
                  pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ro{i}")),
         shape=pcvl.InterferometerShape.RECTANGLE
     )
-    print("Quantum Circuit created")
+
 
     # Combine all components
     return wl // c_var // wr
 
+
+class MinMaxScaler(torch.nn.Module):
+    def __init__(self, feature_range=(0, 1)):
+        super().__init__()
+        self.min_val = None
+        self.max_val = None
+        self.feature_range = feature_range
+
+    def fit(self, data):
+        """Compute min and max for each feature."""
+        self.min_val = data.min(dim=0, keepdim=True).values
+        self.max_val = data.max(dim=0, keepdim=True).values
+
+    def transform(self, data):
+        """Apply min-max scaling."""
+        if self.min_val is None or self.max_val is None:
+            raise ValueError("Call `fit` before `transform`.")
+
+        scale = self.feature_range[1] - self.feature_range[0]
+        min_range = self.feature_range[0]
+        max_range = self.feature_range[1]
+
+        normalized = (data - self.min_val) / (self.max_val - self.min_val + 1e-8)
+        normalized[normalized < min_range] = min_range
+        normalized[normalized >= max_range] = min_range
+        return normalized * scale + min_range
+
+    def inverse_transform(self, data_scaled):
+        """Revert the normalization."""
+        if self.min_val is None or self.max_val is None:
+            raise ValueError("Call `fit` before `inverse_transform`.")
+
+        scale = self.feature_range[1] - self.feature_range[0]
+        min_range = self.feature_range[0]
+
+        unscaled = (data_scaled - min_range) / (scale + 1e-8)
+        return unscaled * (self.max_val - self.min_val + 1e-8) + self.min_val
 
 
 class Architecture1_BosonPreprocessor_MLP(nn.Module):
@@ -53,6 +90,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
                  pca_components: int = 16, dropout_rate: float = 0.2):
         super().__init__()
 
+        self.scaler = MinMaxScaler()
         self.input_norm = nn.BatchNorm1d(input_dim)
         circuit = create_quantum_circuit(pca_components)
 
@@ -98,7 +136,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
             x_np = x.detach().cpu().numpy()
             x_pca = self.pca.transform(x_np)
             x = torch.tensor(x_pca, dtype=torch.float32, device=x.device)
-
+        x = self.scaler.transform(x)
         x = self.boson_replacement(x)
         return self.mlp(x)
 
@@ -108,11 +146,12 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
     Image → CNN → Boson Sampler → Flatten → MLP
     Modified: Image → Normalization → CNN → Linear → Flatten → MLP
     """
-    def __init__(self, input_channels: int, num_classes: int, cnn_channels: List[int] = [32, 64],
-                 mlp_hidden: int = 128, dropout_rate: float = 0.2):
+    def __init__(self, input_channels: int, num_classes: int, cnn_channels: List[int] = [32, 64, 32],
+                 mlp_hidden: int = 128, dropout_rate: float = 0.2, n_photons=3):
         super().__init__()
         self.input_norm = nn.BatchNorm2d(input_channels)
-        
+        self.scaler = MinMaxScaler()
+        self.n_photons = n_photons
         # CNN layers
         cnn_layers = []
         prev_channels = input_channels
@@ -141,11 +180,24 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
         x = self.cnn(x)
         
         # Initialize boson replacement and MLP on first forward pass
-        if self.boson_replacement is None:
+        if self.quantum is None:
             batch_size = x.size(0)
             self.cnn_output_size = x.numel() // batch_size
-            self.boson_replacement = BosonSamplerReplacement(
-                self.cnn_output_size, self.mlp_hidden, dropout_rate=self.dropout_rate
+
+            circuit = create_quantum_circuit(self.cnn_output_size)
+
+            input_state = [1] * self.n_photons + [0] * (self.cnn_output_size - self.n_photons)
+            print("CNN OUTPUT SIZE", self.cnn_output_size)
+            self.quantum = QuantumLayer(
+                input_size=self.cnn_output_size,
+                output_size=None,
+                circuit=circuit,
+                input_state=input_state,  # Random Initial quantum state used only for initialization
+                output_mapping_strategy=OutputMappingStrategy.NONE,
+                input_parameters=["px"],
+                trainable_parameters=["theta"],
+                no_bunching=True,
+                device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             ).to(x.device)
             self.mlp = nn.Sequential(
                 nn.BatchNorm1d(self.mlp_hidden),
@@ -153,9 +205,11 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
                 nn.Dropout(self.dropout_rate),
                 nn.Linear(self.mlp_hidden, self.num_classes)
             ).to(x.device)
+
         
         x = x.view(x.size(0), -1)
-        x = self.boson_replacement(x)
+        x = self.scaler.transform(x)
+        x = self.quantum(x)
         return self.mlp(x)
 
 
@@ -168,6 +222,8 @@ class Architecture3_Boson_Decoder(nn.Module):
                  decoder_hidden: List[int] = [128, 256], dropout_rate: float = 0.2):
         super().__init__()
         self.input_norm = nn.BatchNorm1d(input_dim)
+        self.scaler = MinMaxScaler()
+        circuit = create_quantum_circuit(input_dim)
         self.boson_replacement = BosonSamplerReplacement(input_dim, latent_dim, dropout_rate=dropout_rate)
         
         # Decoder MLP
@@ -197,8 +253,8 @@ class Architecture4_Boson_Layer_NN(nn.Module):
     Input → Dense → Boson Sampler → Dense → Output
     Modified: Input → Normalization → Dense → Linear → Dense → Output
     """
-    def __init__(self, input_dim: int, num_classes: int, hidden_dim: int = 128,
-                 boson_dim: int = 64, dropout_rate: float = 0.2):
+    def __init__(self, input_dim: int, num_classes: int, hidden_dim: int = 32,
+                 boson_dim: int = 64, dropout_rate: float = 0.2, n_photons=3):
         super().__init__()
         self.input_norm = nn.BatchNorm1d(input_dim)
         self.dense1 = nn.Sequential(
@@ -207,7 +263,21 @@ class Architecture4_Boson_Layer_NN(nn.Module):
             nn.ReLU(),
             nn.Dropout(dropout_rate)
         )
-        self.boson_replacement = BosonSamplerReplacement(hidden_dim, boson_dim, dropout_rate=dropout_rate)
+        circuit = create_quantum_circuit(hidden_dim)
+
+        input_state = [1] * n_photons + [0] * (hidden_dim - n_photons)
+        self.scaler = MinMaxScaler()
+        self.quantum = QuantumLayer(
+            input_size=hidden_dim,
+            output_size=None,
+            circuit=circuit,
+            input_state=input_state,  # Random Initial quantum state used only for initialization
+            output_mapping_strategy=OutputMappingStrategy.NONE,
+            input_parameters=["px"],
+            trainable_parameters=["theta"],
+            no_bunching=True,
+            device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        )
         self.dense2 = nn.Sequential(
             nn.BatchNorm1d(boson_dim),
             nn.ReLU(),
@@ -220,7 +290,8 @@ class Architecture4_Boson_Layer_NN(nn.Module):
         x = x.view(batch_size, -1)
         x = self.input_norm(x)
         x = self.dense1(x)
-        x = self.boson_replacement(x)
+        x = self.scaler.transform(x)
+        x = self.quantum(x)
         return self.dense2(x)
 
 
@@ -296,7 +367,7 @@ class Architecture7_Boson_PCA_Classifier(nn.Module):
     Image → PCA → Boson Sampler → Histogram → Classifier
     Modified: Image → Normalization → PCA → Linear → Classifier
     """
-    def __init__(self, input_dim: int, num_classes: int, pca_components: int = 64,
+    def __init__(self, input_dim: int, num_classes: int, pca_components: int = 32,
                  hidden_dims: List[int] = [128, 64], dropout_rate: float = 0.2):
         super().__init__()
         self.pca_components = pca_components
@@ -345,8 +416,8 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
     Modified: Input → Normalization → Encoder → Linear (latent) → Decoder
     """
     def __init__(self, input_dim: int, num_classes: int, latent_dim: int = 64,
-                 encoder_hidden: List[int] = [256, 128], decoder_hidden: List[int] = [128, 256],
-                 dropout_rate: float = 0.2):
+                 encoder_hidden: List[int] = [256, 128, 64, 32], decoder_hidden: List[int] = [32, 64, 128, 256],
+                 dropout_rate: float = 0.2, n_photons=3):
         super().__init__()
         self.input_norm = nn.BatchNorm1d(input_dim)
         
@@ -362,10 +433,21 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
             ])
             prev_dim = hidden_dim
         self.encoder = nn.Sequential(*encoder_layers)
-        
-        # Latent space (Boson sampler replacement)
-        self.boson_replacement = BosonSamplerReplacement(
-            prev_dim, latent_dim, dropout_rate=dropout_rate
+
+        circuit = create_quantum_circuit(prev_dim)
+
+        input_state = [1] * n_photons + [0] * (prev_dim - n_photons)
+        self.scaler = MinMaxScaler()
+        self.quantum = QuantumLayer(
+            input_size=prev_dim,
+            output_size=None,
+            circuit=circuit,
+            input_state=input_state,  # Random Initial quantum state used only for initialization
+            output_mapping_strategy=OutputMappingStrategy.NONE,
+            input_parameters=["px"],
+            trainable_parameters=["theta"],
+            no_bunching=True,
+            device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         )
         
         # Decoder
@@ -387,7 +469,7 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
         x = x.view(batch_size, -1)
         x = self.input_norm(x)
         encoded = self.encoder(x)
-        latent = self.boson_replacement(encoded)
+        latent = self.quantum(encoded)
         return self.decoder(latent)
 
 
