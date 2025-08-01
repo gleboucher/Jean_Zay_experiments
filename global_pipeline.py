@@ -381,22 +381,22 @@ def run_experiments(config: Dict[str, Any]):
                 'weight_decay': config.get('weight_decay', 1e-4)
             }
             
-            try:
-                results = trainer.train_model(arch_name, dataset_name, hyperparams)
-                print(results)
-                all_results.append(results)
-                
-                # Save intermediate results
-                output_dir = Path(config['output_dir'])
-                output_dir.mkdir(exist_ok=True)
-                
-                result_file = output_dir / f"{arch_name}_{dataset_name}_results.json"
-                with open(result_file, 'w') as f:
-                    json.dump(results, f, indent=2)
+            #try:
+            results = trainer.train_model(arch_name, dataset_name, hyperparams)
+            print(results)
+            all_results.append(results)
+
+            # Save intermediate results
+            output_dir = Path(config['output_dir'])
+            output_dir.mkdir(exist_ok=True)
+
+            result_file = output_dir / f"{arch_name}_{dataset_name}_results.json"
+            with open(result_file, 'w') as f:
+                json.dump(results, f, indent=2)
                     
-            except Exception as e:
-                print(f"Error training {arch_name} on {dataset_name}: {str(e)}")
-                continue
+            #except Exception as e:
+                #print(f"Error training {arch_name} on {dataset_name}: {str(e)}")
+                #continue
     
     # Save all results
     output_dir = Path(config['output_dir'])
