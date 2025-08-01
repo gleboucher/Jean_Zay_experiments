@@ -73,7 +73,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
         
         # MLP after PCA
         mlp_layers = []
-        prev_dim = pca_components
+        prev_dim = self.boson_replacement.output_size
         for hidden_dim in hidden_dims[1:]:
             mlp_layers.extend([
                 nn.Linear(prev_dim, hidden_dim),
