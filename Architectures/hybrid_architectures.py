@@ -88,6 +88,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
         
     def forward(self, x):
         batch_size = x.size(0)
+        device = x.device
         x = x.view(batch_size, -1)
         x = self.input_norm(x)
         # Apply PCA (in eval mode or after fitting)
@@ -95,7 +96,8 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
             x_np = x.detach().cpu().numpy()
             x_pca = self.pca.transform(x_np)
             x = torch.tensor(x_pca, dtype=torch.float32, device=x.device)
-        x = self.boson_replacement(x)
+
+        x = self.boson_replacement(x).to(device)
         return self.mlp(x)
 
 
