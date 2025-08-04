@@ -57,7 +57,7 @@ def run_small_experiment():
         'num_workers': 0,  # Avoid multiprocessing issues
         'learning_rate': 1e-3,
         'optimizer': 'adam',
-        'batch_size': 64,
+        'batch_size': 16,
         'network_depth': 2,
         'dropout_rate': 0.1,
         'weight_decay': 1e-4
