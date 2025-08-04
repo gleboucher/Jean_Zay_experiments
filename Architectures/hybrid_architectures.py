@@ -54,10 +54,12 @@ class MinMaxNorm1d(nn.Module):
 def create_quantum_circuit(m):
     # 1. Left interferometer - trainable transformation
 
-    k = m // 13 + 1
+    k = (m-1) // 12 + 1
+
     num_modes = m // k
+    print("number of modes", num_modes, "number of reps", k)
     wl = pcvl.GenericInterferometer(
-        m,
+        num_modes,
         lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_li{i}")) //
                  pcvl.BS() // pcvl.PS(pcvl.P(f"theta_lo{i}")),
         shape=pcvl.InterferometerShape.RECTANGLE
@@ -67,14 +69,15 @@ def create_quantum_circuit(m):
         # 2. Input encoding - maps classical data to quantum parameters
         c_var = pcvl.Circuit(num_modes)
         for i in range(num_modes):  # 4 input features
-            px = pcvl.P(f"px{i + 1 + j*num_modes}")
+            px = pcvl.P(f"px{i}_{j}")
             c_var.add(i, pcvl.PS(px))
 
         # 3. Right interferometer - trainable transformation
+
         wr = pcvl.GenericInterferometer(
-            m,
-            lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ri{i + j*num_modes}")) //
-                     pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ro{i + j*num_modes}")),
+            num_modes,
+            lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ri{i}_{j}")) //
+                     pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ro{i}_{j}")),
             shape=pcvl.InterferometerShape.RECTANGLE
         )
         circuit = circuit // c_var // wr
