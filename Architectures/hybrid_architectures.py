@@ -99,7 +99,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
         circuit = create_quantum_circuit(pca_components)
         self.quantum_norm = MinMaxNorm1d(pca_components)
         input_state = [1] * 3 + [0] * (pca_components - 3)
-        self.boson_replacement = QuantumLayer(
+        self.quantum = QuantumLayer(
                     input_size=pca_components,
                     output_size=None,
                     circuit=circuit,
@@ -116,7 +116,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
         
         # MLP after PCA
         mlp_layers = []
-        prev_dim = self.boson_replacement.output_size
+        prev_dim = self.quantum.output_size
 
         for hidden_dim in hidden_dims[1:]:
             mlp_layers.extend([
@@ -141,7 +141,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
             x_pca = self.pca.transform(x_np)
             x = torch.tensor(x_pca, dtype=torch.float32, device=x.device)
         x = self.quantum_norm(x)
-        x = self.boson_replacement(x)
+        x = self.quantum(x)
         return self.mlp(x)
 
 
@@ -179,7 +179,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
         self.cnn_output_size = None
         
         # Boson sampler replacement and MLP will be defined after first forward pass
-        self.boson_replacement = None
+        self.quantum = None
         self.mlp = None
         self.hidden_dims = hidden_dims
         self.num_classes = num_classes
@@ -211,7 +211,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             ).to(x.device)
             mlp_layers = []
-            prev_dim = self.boson_replacement.output_size
+            prev_dim = self.quantum.output_size
 
             for hidden_dim in self.hidden_dims[1:]:
                 mlp_layers.extend([
@@ -241,7 +241,7 @@ class Architecture3_Boson_Decoder(nn.Module):
         super().__init__()
         self.input_norm = nn.BatchNorm1d(input_dim)
         circuit = create_quantum_circuit(input_dim)
-        self.boson_replacement = BosonSamplerReplacement(input_dim, latent_dim, dropout_rate=dropout_rate)
+        self.quantum = BosonSamplerReplacement(input_dim, latent_dim, dropout_rate=dropout_rate)
         
         # Decoder MLP
         decoder_layers = []
@@ -261,7 +261,7 @@ class Architecture3_Boson_Decoder(nn.Module):
         batch_size = x.size(0)
         x = x.view(batch_size, -1)
         x = self.input_norm(x)
-        x = self.boson_replacement(x)
+        x = self.quantum(x)
         return self.decoder(x)
 
 
@@ -279,7 +279,7 @@ class Architecture4_Boson_Layer_NN(nn.Module):
                 hidden_dims *= network_depth
         self.input_norm = nn.BatchNorm1d(input_dim)
         mlp_layers = []
-        prev_dim = self.boson_replacement.output_size
+        prev_dim = self.quantum.output_size
 
         for hidden_dim in hidden_dims[1:]:
             mlp_layers.extend([
@@ -349,7 +349,7 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
         
         # Boson path (operates on flattened input)
         self.boson_path_init = None
-        self.boson_replacement = None
+        self.quantum = None
         
         # MLP for concatenated features
         self.mlp = None
@@ -368,9 +368,9 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
         
         # Boson path (linear transformation of flattened input)
         input_flat = normalized_x.view(batch_size, -1)
-        if self.boson_replacement is None:
+        if self.quantum is None:
             input_dim = input_flat.size(1)
-            self.boson_replacement = BosonSamplerReplacement(
+            self.quantum = BosonSamplerReplacement(
                 input_dim, self.boson_hidden, dropout_rate=self.dropout_rate
             ).to(x.device)
             
@@ -384,7 +384,7 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
                 nn.Linear(self.mlp_hidden, self.num_classes)
             ).to(x.device)
         
-        boson_features = self.boson_replacement(input_flat)
+        boson_features = self.quantum(input_flat)
         
         # Concatenate and classify
         combined_features = torch.cat([cnn_flat, boson_features], dim=1)
@@ -403,7 +403,7 @@ class Architecture7_Boson_PCA_Classifier(nn.Module):
         self.pca = None
         self.scaler = StandardScaler()
         
-        self.boson_replacement = BosonSamplerReplacement(
+        self.quantum = BosonSamplerReplacement(
             pca_components, hidden_dims[0], dropout_rate=dropout_rate
         )
         
@@ -435,7 +435,7 @@ class Architecture7_Boson_PCA_Classifier(nn.Module):
             # If PCA not fitted, use input as-is (for initialization)
             warnings.warn("PCA not fitted yet, using raw input")
             
-        x = self.boson_replacement(x)
+        x = self.quantum(x)
         return self.classifier(x)
 
 

@@ -288,7 +288,7 @@ class HybridTrainer:
 
         model = get_architecture(architecture_name, input_shape, num_classes, model_config)
         model = model.to(self.device)
-        model.boson_replacement = model.boson_replacement.to(self.device)
+
 
         # Fit PCA if needed
 
