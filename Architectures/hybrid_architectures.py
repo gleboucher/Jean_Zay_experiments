@@ -51,12 +51,12 @@ class MinMaxNorm1d(nn.Module):
         out = out.clamp(0.0, 1.0)
         return out
 
-def create_quantum_circuit(m):
+def create_quantum_circuit(m, n_photons):
     # 1. Left interferometer - trainable transformation
 
     k = (m-1) // 12 + 1
-
     num_modes = m // k
+    input_state = [1] * n_photons + [0] * (num_modes - n_photons)
     print("number of modes", num_modes, "number of reps", k, "m", m)
     wl = pcvl.GenericInterferometer(
         num_modes,
@@ -84,7 +84,7 @@ def create_quantum_circuit(m):
 
 
     # Combine all components
-    return circuit
+    return circuit, input_state
 
 
 
@@ -103,9 +103,9 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
                 hidden_dims *=network_depth
 
         self.input_norm = nn.BatchNorm1d(input_dim)
-        circuit = create_quantum_circuit(pca_components)
+        circuit, input_state = create_quantum_circuit(pca_components, self.n_photons)
         self.quantum_norm = MinMaxNorm1d(pca_components)
-        input_state = [1] * 3 + [0] * (pca_components - 3)
+
         self.quantum = QuantumLayer(
                     input_size=pca_components,
                     output_size=None,
