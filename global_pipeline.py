@@ -143,8 +143,11 @@ class DatasetLoader:
             num_classes = 10
             
         elif dataset_name == 'cifar10':
-            train_dataset = datasets.CIFAR10(data_root, train=True, download=True, transform=train_transform)
-            test_dataset = datasets.CIFAR10(data_root, train=False, transform=test_transform)
+            cifar_path = os.environ['DSDIR'] + '/CIFAR-10-images'
+            train_dir = cifar_path + '/train'
+            test_dir = cifar_path + '/test'
+            train_dataset = datasets.ImageFolder(root=train_dir, transform=train_transform)
+            test_dataset = datasets.ImageFolder(root=test_dir, transform=train_transform)
             input_shape = (3, 32, 32)
             num_classes = 10
             
