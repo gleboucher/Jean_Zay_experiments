@@ -14,6 +14,10 @@ import perceval as pcvl
 
 class MinMaxNorm1d(nn.Module):
     def __init__(self, num_features, momentum=0.1, eps=1e-8):
+        """
+
+        :rtype: torch.tensor
+        """
         super().__init__()
         self.num_features = num_features
         self.momentum = momentum
@@ -82,10 +86,14 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
     Data → Boson Sampler → Histogram → PCA → MLP
     Modified: Data → Normalization → Linear → PCA → MLP
     """
-    def __init__(self, input_dim: int, num_classes: int, hidden_dims: List[int] = [256, 128], 
-                 pca_components: int = 16, dropout_rate: float = 0.2):
+    def __init__(self, input_dim: int, num_classes: int, hidden_dims=None,
+                 pca_components: int = 16, dropout_rate: float = 0.2, network_depth=None):
         super().__init__()
 
+        if hidden_dims is None:
+            hidden_dims = [128]
+            if network_depth is not None:
+                hidden_dims *=network_depth
 
         self.input_norm = nn.BatchNorm1d(input_dim)
         circuit = create_quantum_circuit(pca_components)
@@ -142,9 +150,16 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
     Image → CNN → Boson Sampler → Flatten → MLP
     Modified: Image → Normalization → CNN → Linear → Flatten → MLP
     """
-    def __init__(self, input_channels: int, num_classes: int, cnn_channels: List[int] = [32, 64, 32],
-                 mlp_hidden: int = 128, dropout_rate: float = 0.2, n_photons=3):
+    def __init__(self, input_channels: int, num_classes: int, cnn_channels=None,
+                 hidden_dims=None, dropout_rate: float = 0.2, n_photons=3, network_depth=None):
         super().__init__()
+        if cnn_channels is None:
+            cnn_channels = [32, 64, 32]
+        if hidden_dims is None:
+            hidden_dims = [128]
+            if network_depth is not None:
+                hidden_dims *=network_depth
+
         self.input_norm = nn.BatchNorm2d(input_channels)
         self.n_photons = n_photons
         # CNN layers
@@ -166,7 +181,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
         # Boson sampler replacement and MLP will be defined after first forward pass
         self.boson_replacement = None
         self.mlp = None
-        self.mlp_hidden = mlp_hidden
+        self.hidden_dims = hidden_dims
         self.num_classes = num_classes
         self.dropout_rate = dropout_rate
         
@@ -195,12 +210,19 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
                 no_bunching=True,
                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             ).to(x.device)
-            self.mlp = nn.Sequential(
-                nn.BatchNorm1d(self.mlp_hidden),
-                nn.ReLU(),
-                nn.Dropout(self.dropout_rate),
-                nn.Linear(self.mlp_hidden, self.num_classes)
-            ).to(x.device)
+            mlp_layers = []
+            prev_dim = self.boson_replacement.output_size
+
+            for hidden_dim in self.hidden_dims[1:]:
+                mlp_layers.extend([
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.BatchNorm1d(hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(self.dropout_rate)
+                ])
+                prev_dim = hidden_dim
+            mlp_layers.append(nn.Linear(prev_dim, self.num_classes))
+            self.mlp = nn.Sequential(*mlp_layers).to(x.device)
 
         
         x = x.view(x.size(0), -1)
@@ -248,31 +270,43 @@ class Architecture4_Boson_Layer_NN(nn.Module):
     Input → Dense → Boson Sampler → Dense → Output
     Modified: Input → Normalization → Dense → Linear → Dense → Output
     """
-    def __init__(self, input_dim: int, num_classes: int, hidden_dim: int = 32,
-                 boson_dim: int = 64, dropout_rate: float = 0.2, n_photons=3):
+    def __init__(self, input_dim: int, num_classes: int, hidden_dims=None,
+                 boson_dim: int = 64, dropout_rate: float = 0.2, n_photons=3, network_depth=None):
         super().__init__()
+        if hidden_dims is None:
+            hidden_dims = [32]
+            if network_depth is not None:
+                hidden_dims *= network_depth
         self.input_norm = nn.BatchNorm1d(input_dim)
-        self.dense1 = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate)
-        )
-        circuit = create_quantum_circuit(hidden_dim)
+        mlp_layers = []
+        prev_dim = self.boson_replacement.output_size
 
-        input_state = [1] * n_photons + [0] * (hidden_dim - n_photons)
+        for hidden_dim in hidden_dims[1:]:
+            mlp_layers.extend([
+                nn.Linear(prev_dim, hidden_dim),
+                nn.BatchNorm1d(hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout_rate)
+            ])
+            prev_dim = hidden_dim
+        mlp_layers.append(nn.Linear(prev_dim, num_classes))
+        self.dense1 = nn.Sequential(*mlp_layers)
+
+        circuit = create_quantum_circuit(hidden_dims[-1])
+
+        input_state = [1] * n_photons + [0] * (hidden_dims[-1] - n_photons)
         self.quantum = QuantumLayer(
-            input_size=hidden_dim,
-            output_size=None,
+            input_size=hidden_dims[-1],
+            output_size=boson_dim,
             circuit=circuit,
             input_state=input_state,  # Random Initial quantum state used only for initialization
-            output_mapping_strategy=OutputMappingStrategy.NONE,
+            output_mapping_strategy=OutputMappingStrategy.LEXGROUPING,
             input_parameters=["px"],
             trainable_parameters=["theta"],
             no_bunching=True,
             device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         )
-        self.quantum_norm = MinMaxNorm1d(hidden_dim)
+        self.quantum_norm = MinMaxNorm1d(hidden_dims[-1])
         self.dense2 = nn.Sequential(
             nn.BatchNorm1d(boson_dim),
             nn.ReLU(),
