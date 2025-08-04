@@ -204,11 +204,10 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
             batch_size = x.size(0)
             self.cnn_output_size = x.numel() // batch_size
 
-            circuit = create_quantum_circuit(self.boson_dim)
+            circuit, input_state= create_quantum_circuit(self.boson_dim, self.n_photons)
 
-            input_state = [1] * self.n_photons + [0] * (self.boson_dim - self.n_photons)
 
-            self.prequantum = nn.Linear(self.cnn_output_size, self.boson_dim)
+            self.prequantum = nn.Linear(self.cnn_output_size, self.boson_dim).to(x.device)
             self.quantum_norm = MinMaxNorm1d(self.boson_dim)
 
             self.quantum = QuantumLayer(
@@ -235,7 +234,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
                 ])
                 prev_dim = hidden_dim
             mlp_layers.append(nn.Linear(prev_dim, self.num_classes))
-            self.mlp = nn.Sequential(*mlp_layers).to(x.device).to(x.device)
+            self.mlp = nn.Sequential(*mlp_layers).to(x.device)
 
         x = x.view(x.size(0), -1)
         x = self.prequantum(x)
@@ -305,9 +304,8 @@ class Architecture4_Boson_Layer_NN(nn.Module):
         mlp_layers.append(nn.Linear(prev_dim, hidden_dims[-1]))
         self.dense1 = nn.Sequential(*mlp_layers)
 
-        circuit = create_quantum_circuit(hidden_dims[-1])
+        circuit, input_state = create_quantum_circuit(hidden_dims[-1], n_photons)
 
-        input_state = [1] * n_photons + [0] * (hidden_dims[-1] - n_photons)
         self.quantum = QuantumLayer(
             input_size=hidden_dims[-1],
             output_size=boson_dim,
