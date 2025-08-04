@@ -65,9 +65,9 @@ def create_quantum_circuit(m):
     circuit = wl
     for j in range(k):
         # 2. Input encoding - maps classical data to quantum parameters
-        c_var = pcvl.Circuit(m)
-        for i in range(m):  # 4 input features
-            px = pcvl.P(f"px{i + 1}")
+        c_var = pcvl.Circuit(num_modes)
+        for i in range(num_modes):  # 4 input features
+            px = pcvl.P(f"px{i + 1 + j*num_modes}")
             c_var.add(i, pcvl.PS(px))
 
         # 3. Right interferometer - trainable transformation
@@ -190,6 +190,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
         self.num_classes = num_classes
         self.dropout_rate = dropout_rate
         self.boson_dim = boson_dim
+        print(boson_dim)
 
     def forward(self, x):
         x = self.input_norm(x)
@@ -289,8 +290,8 @@ class Architecture4_Boson_Layer_NN(nn.Module):
         self.input_norm = nn.BatchNorm1d(input_dim)
         mlp_layers = []
         prev_dim = self.quantum.output_size
-
-        for hidden_dim in hidden_dims[1:]:
+        n_dims = len(hidden_dims)
+        for hidden_dim in hidden_dims[:n_dims-1]:
             mlp_layers.extend([
                 nn.Linear(prev_dim, hidden_dim),
                 nn.BatchNorm1d(hidden_dim),
@@ -298,7 +299,7 @@ class Architecture4_Boson_Layer_NN(nn.Module):
                 nn.Dropout(dropout_rate)
             ])
             prev_dim = hidden_dim
-        mlp_layers.append(nn.Linear(prev_dim, num_classes))
+        mlp_layers.append(nn.Linear(prev_dim, hidden_dims[-1]))
         self.dense1 = nn.Sequential(*mlp_layers)
 
         circuit = create_quantum_circuit(hidden_dims[-1])
