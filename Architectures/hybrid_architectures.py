@@ -151,7 +151,8 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
     Modified: Image → Normalization → CNN → Linear → Flatten → MLP
     """
     def __init__(self, input_channels: int, num_classes: int, cnn_channels=None,
-                 hidden_dims=None, dropout_rate: float = 0.2, n_photons=3, network_depth=None):
+                 hidden_dims=None, dropout_rate: float = 0.2, n_photons=3,
+                 network_depth=None, boson_dim=20):
         super().__init__()
         if cnn_channels is None:
             cnn_channels = [32, 64, 32]
@@ -184,6 +185,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
         self.hidden_dims = hidden_dims
         self.num_classes = num_classes
         self.dropout_rate = dropout_rate
+        self.boson_dim = boson_dim
         
     def forward(self, x):
         x = self.input_norm(x)
@@ -198,9 +200,10 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
 
             input_state = [1] * self.n_photons + [0] * (self.cnn_output_size - self.n_photons)
             print("CNN OUTPUT SIZE", self.cnn_output_size)
-            self.quantum_norm = MinMaxNorm1d(self.cnn_output_size)
+            self.prequantum = nn.Linear(self.cnn_output_size, self.boson_dim)
+            self.quantum_norm = MinMaxNorm1d(self.boson_dim)
             self.quantum = QuantumLayer(
-                input_size=self.cnn_output_size,
+                input_size=self.boson_dim,
                 output_size=None,
                 circuit=circuit,
                 input_state=input_state,  # Random Initial quantum state used only for initialization
@@ -226,6 +229,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
 
         
         x = x.view(x.size(0), -1)
+        x = self.prequantum(x)
         x = self.quantum_norm(x)
         x = self.quantum(x)
         return self.mlp(x)
@@ -306,6 +310,7 @@ class Architecture4_Boson_Layer_NN(nn.Module):
             no_bunching=True,
             device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         )
+        print(f"Quantum Layer definer with input size {hidden_dims[-1]} and output size {boson_dim} ")
         self.quantum_norm = MinMaxNorm1d(hidden_dims[-1])
         self.dense2 = nn.Sequential(
             nn.BatchNorm1d(boson_dim),
