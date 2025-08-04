@@ -193,12 +193,12 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
         self.num_classes = num_classes
         self.dropout_rate = dropout_rate
         self.boson_dim = boson_dim
-        print(boson_dim)
+
 
     def forward(self, x):
         x = self.input_norm(x)
         x = self.cnn(x)
-        
+
         # Initialize boson replacement and MLP on first forward pass
         if self.quantum is None:
             batch_size = x.size(0)
@@ -235,7 +235,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
                 ])
                 prev_dim = hidden_dim
             mlp_layers.append(nn.Linear(prev_dim, self.num_classes))
-            self.mlp = nn.Sequential(*mlp_layers).to(x.device)
+            self.mlp = nn.Sequential(*mlp_layers).to(x.device).to(x.device)
 
         x = x.view(x.size(0), -1)
         x = self.prequantum(x)
