@@ -54,30 +54,34 @@ class MinMaxNorm1d(nn.Module):
 def create_quantum_circuit(m):
     # 1. Left interferometer - trainable transformation
 
+    k = m // 13 + 1
+    num_modes = m // k
     wl = pcvl.GenericInterferometer(
         m,
         lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_li{i}")) //
                  pcvl.BS() // pcvl.PS(pcvl.P(f"theta_lo{i}")),
         shape=pcvl.InterferometerShape.RECTANGLE
     )
+    circuit = wl
+    for j in range(k):
+        # 2. Input encoding - maps classical data to quantum parameters
+        c_var = pcvl.Circuit(m)
+        for i in range(m):  # 4 input features
+            px = pcvl.P(f"px{i + 1}")
+            c_var.add(i, pcvl.PS(px))
 
-    # 2. Input encoding - maps classical data to quantum parameters
-    c_var = pcvl.Circuit(m)
-    for i in range(m):  # 4 input features
-        px = pcvl.P(f"px{i + 1}")
-        c_var.add(i, pcvl.PS(px))
-
-    # 3. Right interferometer - trainable transformation
-    wr = pcvl.GenericInterferometer(
-        m,
-        lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ri{i}")) //
-                 pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ro{i}")),
-        shape=pcvl.InterferometerShape.RECTANGLE
-    )
+        # 3. Right interferometer - trainable transformation
+        wr = pcvl.GenericInterferometer(
+            m,
+            lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ri{i + j*num_modes}")) //
+                     pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ro{i + j*num_modes}")),
+            shape=pcvl.InterferometerShape.RECTANGLE
+        )
+        circuit = circuit // c_var // wr
 
 
     # Combine all components
-    return wl // c_var // wr
+    return circuit
 
 
 
@@ -152,7 +156,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
     """
     def __init__(self, input_channels: int, num_classes: int, cnn_channels=None,
                  hidden_dims=None, dropout_rate: float = 0.2, n_photons=3,
-                 network_depth=None, boson_dim=20):
+                 network_depth=None, boson_dim=12):
         super().__init__()
         if cnn_channels is None:
             cnn_channels = [32, 64, 32]
@@ -186,7 +190,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
         self.num_classes = num_classes
         self.dropout_rate = dropout_rate
         self.boson_dim = boson_dim
-        
+
     def forward(self, x):
         x = self.input_norm(x)
         x = self.cnn(x)
@@ -199,9 +203,10 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
             circuit = create_quantum_circuit(self.cnn_output_size)
 
             input_state = [1] * self.n_photons + [0] * (self.cnn_output_size - self.n_photons)
-            print("CNN OUTPUT SIZE", self.cnn_output_size)
+
             self.prequantum = nn.Linear(self.cnn_output_size, self.boson_dim)
             self.quantum_norm = MinMaxNorm1d(self.boson_dim)
+
             self.quantum = QuantumLayer(
                 input_size=self.boson_dim,
                 output_size=None,
@@ -213,6 +218,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
                 no_bunching=True,
                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             ).to(x.device)
+            print("Quantum Layer defined with input size:", self.boson_dim)
             mlp_layers = []
             prev_dim = self.quantum.output_size
 
@@ -227,7 +233,6 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
             mlp_layers.append(nn.Linear(prev_dim, self.num_classes))
             self.mlp = nn.Sequential(*mlp_layers).to(x.device)
 
-        
         x = x.view(x.size(0), -1)
         x = self.prequantum(x)
         x = self.quantum_norm(x)
@@ -278,7 +283,7 @@ class Architecture4_Boson_Layer_NN(nn.Module):
                  boson_dim: int = 64, dropout_rate: float = 0.2, n_photons=3, network_depth=None):
         super().__init__()
         if hidden_dims is None:
-            hidden_dims = [32]
+            hidden_dims = [16]
             if network_depth is not None:
                 hidden_dims *= network_depth
         self.input_norm = nn.BatchNorm1d(input_dim)
