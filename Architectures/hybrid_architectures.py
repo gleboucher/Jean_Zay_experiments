@@ -57,7 +57,7 @@ def create_quantum_circuit(m):
     k = (m-1) // 12 + 1
 
     num_modes = m // k
-    print("number of modes", num_modes, "number of reps", k)
+    print("number of modes", num_modes, "number of reps", k, "m", m)
     wl = pcvl.GenericInterferometer(
         num_modes,
         lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_li{i}")) //
@@ -204,9 +204,9 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
             batch_size = x.size(0)
             self.cnn_output_size = x.numel() // batch_size
 
-            circuit = create_quantum_circuit(self.cnn_output_size)
+            circuit = create_quantum_circuit(self.boson_dim)
 
-            input_state = [1] * self.n_photons + [0] * (self.cnn_output_size - self.n_photons)
+            input_state = [1] * self.n_photons + [0] * (self.boson_dim - self.n_photons)
 
             self.prequantum = nn.Linear(self.cnn_output_size, self.boson_dim)
             self.quantum_norm = MinMaxNorm1d(self.boson_dim)
