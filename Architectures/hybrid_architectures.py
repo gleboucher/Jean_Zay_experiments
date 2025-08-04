@@ -94,7 +94,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
     Modified: Data → Normalization → Linear → PCA → MLP
     """
     def __init__(self, input_dim: int, num_classes: int, hidden_dims=None,
-                 pca_components: int = 16, dropout_rate: float = 0.2, network_depth=None):
+                 pca_components: int = 16, dropout_rate: float = 0.2, network_depth=None, n_photons=3):
         super().__init__()
 
         if hidden_dims is None:
@@ -103,7 +103,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
                 hidden_dims *=network_depth
 
         self.input_norm = nn.BatchNorm1d(input_dim)
-        circuit, input_state = create_quantum_circuit(pca_components, self.n_photons)
+        circuit, input_state = create_quantum_circuit(pca_components, n_photons)
         self.quantum_norm = MinMaxNorm1d(pca_components)
 
         self.quantum = QuantumLayer(
