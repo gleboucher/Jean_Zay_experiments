@@ -49,9 +49,9 @@ def quick_test():
 def run_small_experiment():
     """Run a small experiment on MNIST with one architecture"""
     config = {
-        'architectures': ['boson_preprocessor_mlp'],
+        'architectures': ['cnn_boson_mlp', 'boson_layer_nn'],
         'datasets': ['mnist'],
-        'num_epochs': 20,  # Quick test
+        'num_epochs': 10,  # Quick test
         'output_dir': './test_results',
         'data_root': './data',
         'num_workers': 0,  # Avoid multiprocessing issues
@@ -128,7 +128,7 @@ def hyperparameter_search():
         print(f"\nTrial {i+1}/{len(combinations)}: {hyperparams}")
         
         try:
-            results = trainer.train_model('cnn_boson_mlp', 'mnist', hyperparams)
+            results = trainer.train_model('boson_preprocessor_mlp', 'mnist', hyperparams)
             all_results.append(results)
         except Exception as e:
             print(f"Trial failed: {e}")
