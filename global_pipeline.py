@@ -304,20 +304,20 @@ class HybridTrainer:
             optimizer = optim.Adam(
                 model.parameters(), 
                 lr=hyperparams['learning_rate'],
-                weight_decay=hyperparams['weight_decay']
+                weight_decay=1e-4
             )
         elif hyperparams['optimizer'] == 'sgd':
             optimizer = optim.SGD(
                 model.parameters(), 
                 lr=hyperparams['learning_rate'],
-                weight_decay=hyperparams['weight_decay'],
+                weight_decay=1e-2,
                 momentum=0.9
             )
         else:  # rmsprop
             optimizer = optim.RMSprop(
                 model.parameters(), 
                 lr=hyperparams['learning_rate'],
-                weight_decay=hyperparams['weight_decay']
+                weight_decay=5e-4
             )
 
         

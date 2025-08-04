@@ -208,7 +208,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
 
 
             self.prequantum = nn.Linear(self.cnn_output_size, self.boson_dim).to(x.device)
-            self.quantum_norm = MinMaxNorm1d(self.boson_dim)
+            self.quantum_norm = MinMaxNorm1d(self.boson_dim).to(x.device)
 
             self.quantum = QuantumLayer(
                 input_size=self.boson_dim,
@@ -238,6 +238,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
 
         x = x.view(x.size(0), -1)
         x = self.prequantum(x)
+
         x = self.quantum_norm(x)
         x = self.quantum(x)
         return self.mlp(x)
