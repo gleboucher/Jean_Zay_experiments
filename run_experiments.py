@@ -57,10 +57,9 @@ def run_small_experiment():
         'num_workers': 0,  # Avoid multiprocessing issues
         'learning_rate': 1e-3,
         'optimizer': 'adam',
-        'batch_size': 16,
+        'batch_size': 8,
         'network_depth': 2,
         'dropout_rate': 0.1,
-        'weight_decay': 1e-4
     }
     
     print("Running small experiment...")
@@ -94,11 +93,10 @@ def hyperparameter_search():
     
     # Define search space (reduced for efficiency)
     search_space = {
-        'learning_rate': [1e-4, 5e-4, 1e-3],
+        'learning_rate': [5e-4, 1e-3],
         'optimizer': ['adam', 'sgd'],
-        'batch_size': [32, 64],
-        'dropout_rate': [0.1, 0.2],
-        'weight_decay': [1e-5, 1e-4]
+        'batch_size': [64],
+        'dropout_rate': [0, 0.1, 0.2],
     }
     
     # Generate all combinations
@@ -107,14 +105,14 @@ def hyperparameter_search():
     combinations = list(itertools.product(*values))
     
     # Sample a subset for efficiency
-    max_trials = 10
+    max_trials = 12
     if len(combinations) > max_trials:
         combinations = random.sample(combinations, max_trials)
     
     print(f"Running hyperparameter search with {len(combinations)} combinations...")
     
     trainer = HybridTrainer({
-        'num_epochs': 20,
+        'num_epochs': 15,
         'data_root': './data',
         'num_workers': 0
     })
