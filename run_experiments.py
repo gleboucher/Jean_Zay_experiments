@@ -49,7 +49,7 @@ def quick_test():
 def run_small_experiment():
     """Run a small experiment on MNIST with one architecture"""
     config = {
-        'architectures': ['cnn_boson_mlp', 'boson_layer_nn'],
+        'architectures': ['boson_decoder', 'dual_path_cnn_boson'],
         'datasets': ['mnist'],
         'num_epochs': 10,  # Quick test
         'output_dir': './test_results',
@@ -57,9 +57,9 @@ def run_small_experiment():
         'num_workers': 0,  # Avoid multiprocessing issues
         'learning_rate': 1e-3,
         'optimizer': 'adam',
-        'batch_size': 8,
+        'batch_size': 32,
         'network_depth': 2,
-        'dropout_rate': 0.1,
+        'dropout_rate': 0.2,
     }
     
     print("Running small experiment...")
@@ -120,7 +120,8 @@ def hyperparameter_search():
     })
     
     all_results = []
-    
+    arch = "boson_preprocessor_mlp"
+    dataset = "mnist"
     for i, combo in enumerate(combinations):
         hyperparams = dict(zip(keys, combo))
         hyperparams['network_depth'] = 3  # Fixed
@@ -128,7 +129,7 @@ def hyperparameter_search():
         print(f"\nTrial {i+1}/{len(combinations)}: {hyperparams}")
         
         try:
-            results = trainer.train_model('boson_preprocessor_mlp', 'mnist', hyperparams)
+            results = trainer.train_model(arch, dataset, hyperparams)
             all_results.append(results)
         except Exception as e:
             print(f"Trial failed: {e}")
@@ -143,7 +144,7 @@ def hyperparameter_search():
         
         # Save results
         Path('./hyperparameter_search').mkdir(exist_ok=True)
-        with open('./hyperparameter_search/results.json', 'w') as f:
+        with open(f'./hyperparameter_search/results_{arch}_{dataset}.json', 'w') as f:
             json.dump(all_results, f, indent=2)
 
 

@@ -286,7 +286,7 @@ class HybridTrainer:
         # Create model
         model_config = {
             'dropout_rate': hyperparams['dropout_rate'],
-            'network_depth':hyperparams['network_depth']
+
         }
 
         model = get_architecture(architecture_name, input_shape, num_classes, model_config)
@@ -388,7 +388,6 @@ def run_experiments(config: Dict[str, Any]):
                 'learning_rate': config.get('learning_rate', 1e-3),
                 'optimizer': config.get('optimizer', 'adam'),
                 'batch_size': config.get('batch_size', 64),
-                'network_depth': config.get('network_depth', 3),
                 'dropout_rate': config.get('dropout_rate', 0.2),
                 'weight_decay': config.get('weight_decay', 1e-4)
             }

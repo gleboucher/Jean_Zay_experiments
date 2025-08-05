@@ -277,7 +277,7 @@ class Architecture3_Boson_Decoder(nn.Module):
                  decoder_hidden: List[int] = [128, 256], dropout_rate: float = 0.2,
                  n_photons=3, max_modes=20):
         super().__init__()
-        self.quantum_norm = MinMaxNorm1d(self.cnn_output_size)
+        self.quantum_norm = MinMaxNorm1d(input_dim)
         circuit, input_state = create_quantum_circuit(input_dim, n_photons, max_modes)
         self.quantum = QuantumLayer(
             input_size=input_dim,
