@@ -93,10 +93,12 @@ def hyperparameter_search():
     
     # Define search space (reduced for efficiency)
     search_space = {
-        'learning_rate': [5e-4, 1e-3],
-        'optimizer': ['adam', 'sgd'],
+        'learning_rate': [1e-3],
+        'optimizer': ['adam'],
         'batch_size': [64],
-        'dropout_rate': [0, 0.1, 0.2],
+        'dropout_rate': [0.1],
+        'max_modes': [12, 20, 32],
+        'n_photons': [2, 3, 4]
     }
     
     # Generate all combinations

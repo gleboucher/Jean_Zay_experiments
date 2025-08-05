@@ -51,10 +51,10 @@ class MinMaxNorm1d(nn.Module):
         out = out.clamp(0.0, 1.0)
         return out
 
-def create_quantum_circuit(m, n_photons):
+def create_quantum_circuit(m, n_photons, max_modes=20):
     # 1. Left interferometer - trainable transformation
 
-    k = (m-1) // 12 + 1
+    k = (m-1) // max_modes + 1
     num_modes = m // k
     input_state = [1] * n_photons + [0] * (num_modes - n_photons)
     print("number of modes", num_modes, "number of reps", k, "m", m)
@@ -86,6 +86,15 @@ def create_quantum_circuit(m, n_photons):
     # Combine all components
     return circuit, input_state
 
+def map_output_strategy(output_strategy):
+    if output_strategy is None:
+        return OutputMappingStrategy.NONE
+    if output_strategy == "lexgrouping":
+        return OutputMappingStrategy.LEXGROUPING
+    if output_strategy == "linear":
+        return OutputMappingStrategy.LINEAR
+    else:
+        raise ValueError(f"Unknown output strategy {output_strategy}")
 
 
 class Architecture1_BosonPreprocessor_MLP(nn.Module):
@@ -94,7 +103,8 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
     Modified: Data → Normalization → Linear → PCA → MLP
     """
     def __init__(self, input_dim: int, num_classes: int, hidden_dims=None,
-                 pca_components: int = 16, dropout_rate: float = 0.2, network_depth=None, n_photons=3):
+                 pca_components: int = 16, dropout_rate: float = 0.2,
+                 network_depth=None, n_photons=3, max_modes=20):
         super().__init__()
 
         if hidden_dims is None:
@@ -103,7 +113,7 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
                 hidden_dims *=network_depth
 
         self.input_norm = nn.BatchNorm1d(input_dim)
-        circuit, input_state = create_quantum_circuit(pca_components, n_photons)
+        circuit, input_state = create_quantum_circuit(pca_components, n_photons, max_modes)
         self.quantum_norm = MinMaxNorm1d(pca_components)
 
         self.quantum = QuantumLayer(
@@ -158,8 +168,8 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
     Modified: Image → Normalization → CNN → Linear → Flatten → MLP
     """
     def __init__(self, input_channels: int, num_classes: int, cnn_channels=None,
-                 hidden_dims=None, dropout_rate: float = 0.2, n_photons=3,
-                 network_depth=None, boson_dim=12):
+                 hidden_dims=None, dropout_rate: float = 0.1, n_photons=3,
+                 network_depth=None, boson_modes=20, output_mapping=None):
         super().__init__()
         if cnn_channels is None:
             cnn_channels = [32, 64, 32]
@@ -167,7 +177,8 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
             hidden_dims = [128]
             if network_depth is not None:
                 hidden_dims *=network_depth
-
+        if output_mapping is None:
+            self.output_quantum_size = None
         self.input_norm = nn.BatchNorm2d(input_channels)
         self.n_photons = n_photons
         # CNN layers
@@ -192,26 +203,25 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
         self.hidden_dims = hidden_dims
         self.num_classes = num_classes
         self.dropout_rate = dropout_rate
-        self.boson_dim = boson_dim
+        self.boson_modes = boson_modes
 
 
     def forward(self, x):
         x = self.input_norm(x)
         x = self.cnn(x)
-
         # Initialize boson replacement and MLP on first forward pass
         if self.quantum is None:
             batch_size = x.size(0)
             self.cnn_output_size = x.numel() // batch_size
 
-            circuit, input_state= create_quantum_circuit(self.boson_dim, self.n_photons)
+            circuit, input_state= create_quantum_circuit(self.cnn_output_size, self.n_photons, self.boson_modes)
 
 
-            self.prequantum = nn.Linear(self.cnn_output_size, self.boson_dim).to(x.device)
-            self.quantum_norm = MinMaxNorm1d(self.boson_dim).to(x.device)
+
+            self.quantum_norm = MinMaxNorm1d(self.cnn_output_size).to(x.device)
 
             self.quantum = QuantumLayer(
-                input_size=self.boson_dim,
+                input_size=self.cnn_output_size,
                 output_size=None,
                 circuit=circuit,
                 input_state=input_state,  # Random Initial quantum state used only for initialization
@@ -221,10 +231,9 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
                 no_bunching=True,
                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             ).to(x.device)
-            print("Quantum Layer defined with input size:", self.boson_dim)
+            print("Quantum Layer defined with input size:", self.cnn.output_size)
             mlp_layers = []
             prev_dim = self.quantum.output_size
-
             for hidden_dim in self.hidden_dims[1:]:
                 mlp_layers.extend([
                     nn.Linear(prev_dim, hidden_dim),
@@ -237,8 +246,6 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
             self.mlp = nn.Sequential(*mlp_layers).to(x.device)
 
         x = x.view(x.size(0), -1)
-        x = self.prequantum(x)
-
         x = self.quantum_norm(x)
         x = self.quantum(x)
         return self.mlp(x)
@@ -284,7 +291,8 @@ class Architecture4_Boson_Layer_NN(nn.Module):
     Modified: Input → Normalization → Dense → Linear → Dense → Output
     """
     def __init__(self, input_dim: int, num_classes: int, hidden_dims=None,
-                 boson_dim: int = 64, dropout_rate: float = 0.2, n_photons=3, network_depth=None):
+                 boson_dim: int = 64, dropout_rate: float = 0.2,
+                 n_photons=3, network_depth=None, max_modes=20):
         super().__init__()
         if hidden_dims is None:
             hidden_dims = [16]
@@ -292,7 +300,7 @@ class Architecture4_Boson_Layer_NN(nn.Module):
                 hidden_dims *= network_depth
         self.input_norm = nn.BatchNorm1d(input_dim)
         mlp_layers = []
-        prev_dim = self.quantum.output_size
+        prev_dim = input_dim
         n_dims = len(hidden_dims)
         for hidden_dim in hidden_dims[:n_dims-1]:
             mlp_layers.extend([
@@ -305,7 +313,7 @@ class Architecture4_Boson_Layer_NN(nn.Module):
         mlp_layers.append(nn.Linear(prev_dim, hidden_dims[-1]))
         self.dense1 = nn.Sequential(*mlp_layers)
 
-        circuit, input_state = create_quantum_circuit(hidden_dims[-1], n_photons)
+        circuit, input_state = create_quantum_circuit(hidden_dims[-1], n_photons, max_modes)
 
         self.quantum = QuantumLayer(
             input_size=hidden_dims[-1],
