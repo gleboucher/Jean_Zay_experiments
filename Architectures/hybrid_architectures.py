@@ -248,7 +248,7 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
                 no_bunching=True,
                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             ).to(x.device)
-            print("Quantum Layer defined with input size:", self.cnn.output_size)
+            print("Quantum Layer defined with input size:", self.cnn_output_size)
             mlp_layers = []
             prev_dim = self.quantum.output_size
             for hidden_dim in self.hidden_dims[1:]:
