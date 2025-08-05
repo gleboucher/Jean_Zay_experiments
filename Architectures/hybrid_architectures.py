@@ -51,13 +51,14 @@ class MinMaxNorm1d(nn.Module):
         out = out.clamp(0.0, 1.0)
         return out
 
-def create_quantum_circuit(m, n_photons, max_modes=20):
+def create_quantum_circuit(input_size, n_photons, max_modes=20):
     # 1. Left interferometer - trainable transformation
 
-    k = (m-1) // max_modes + 1
-    num_modes = m // k
+    k = (input_size-1) // max_modes + 1
+    num_modes = input_size // k
+    last_layer = input_size % k
     input_state = [1] * n_photons + [0] * (num_modes - n_photons)
-    print("number of modes", num_modes, "number of reps", k, "m", m)
+    print("number of modes", num_modes, "number of reps", k, "input_size", input_size)
     wl = pcvl.GenericInterferometer(
         num_modes,
         lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_li{i}")) //
@@ -81,7 +82,21 @@ def create_quantum_circuit(m, n_photons, max_modes=20):
             shape=pcvl.InterferometerShape.RECTANGLE
         )
         circuit = circuit // c_var // wr
+    if last_layer > 0:
+        c_var = pcvl.Circuit(num_modes)
+        for i in range(last_layer):  # 4 input features
+            px = pcvl.P(f"px{i}_{k}")
+            c_var.add(i, pcvl.PS(px))
 
+        # 3. Right interferometer - trainable transformation
+
+        wr = pcvl.GenericInterferometer(
+            num_modes,
+            lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ri{i}_{k}")) //
+                      pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ro{i}_{k}")),
+            shape=pcvl.InterferometerShape.RECTANGLE
+        )
+        circuit = circuit // c_var // wr
 
     # Combine all components
     return circuit, input_state
@@ -91,6 +106,8 @@ def map_output_strategy(output_strategy):
         return OutputMappingStrategy.NONE
     if output_strategy == "lexgrouping":
         return OutputMappingStrategy.LEXGROUPING
+    if output_strategy == "modgrouping":
+        return OutputMappingStrategy.MODGROUPING
     if output_strategy == "linear":
         return OutputMappingStrategy.LINEAR
     else:
@@ -257,11 +274,22 @@ class Architecture3_Boson_Decoder(nn.Module):
     Modified: Data → Normalization → Linear → Latent Vector → Decoder
     """
     def __init__(self, input_dim: int, num_classes: int, latent_dim: int = 64,
-                 decoder_hidden: List[int] = [128, 256], dropout_rate: float = 0.2):
+                 decoder_hidden: List[int] = [128, 256], dropout_rate: float = 0.2,
+                 n_photons=3, max_modes=20):
         super().__init__()
-        self.input_norm = nn.BatchNorm1d(input_dim)
-        circuit = create_quantum_circuit(input_dim)
-        self.quantum = BosonSamplerReplacement(input_dim, latent_dim, dropout_rate=dropout_rate)
+        self.quantum_norm = MinMaxNorm1d(self.cnn_output_size)
+        circuit, input_state = create_quantum_circuit(input_dim, n_photons, max_modes)
+        self.quantum = QuantumLayer(
+            input_size=input_dim,
+            output_size=None,
+            circuit=circuit,
+            input_state=input_state,  # Random Initial quantum state used only for initialization
+            output_mapping_strategy=OutputMappingStrategy.NONE,
+            input_parameters=["px"],
+            trainable_parameters=["theta"],
+            no_bunching=True,
+            device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        )
         
         # Decoder MLP
         decoder_layers = []
@@ -351,7 +379,8 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
     Modified: Image → Normalization → [CNN // Linear] → Concatenation → MLP
     """
     def __init__(self, input_channels: int, num_classes: int, cnn_channels: List[int] = [32, 64],
-                 boson_hidden: int = 128, mlp_hidden: int = 256, dropout_rate: float = 0.2):
+                 boson_hidden: int = 128, mlp_hidden: int = 256, dropout_rate: float = 0.2,
+                 n_photons=3, max_modes=20):
         super().__init__()
         self.input_norm = nn.BatchNorm2d(input_channels)
         
@@ -371,7 +400,8 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
         # Boson path (operates on flattened input)
         self.boson_path_init = None
         self.quantum = None
-        
+        self.n_photons = n_photons
+        self.max_modes = max_modes
         # MLP for concatenated features
         self.mlp = None
         self.boson_hidden = boson_hidden
@@ -391,9 +421,19 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
         input_flat = normalized_x.view(batch_size, -1)
         if self.quantum is None:
             input_dim = input_flat.size(1)
-            self.quantum = BosonSamplerReplacement(
-                input_dim, self.boson_hidden, dropout_rate=self.dropout_rate
-            ).to(x.device)
+            self.quantum_norm = MinMaxNorm1d(self.cnn_output_size)
+            circuit, input_state = create_quantum_circuit(input_dim, self.n_photons, self.max_modes)
+            self.quantum = QuantumLayer(
+                input_size=input_dim,
+                output_size=None,
+                circuit=circuit,
+                input_state=input_state,  # Random Initial quantum state used only for initialization
+                output_mapping_strategy=OutputMappingStrategy.NONE,
+                input_parameters=["px"],
+                trainable_parameters=["theta"],
+                no_bunching=True,
+                device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            )
             
             # Initialize MLP after knowing feature dimensions
             concat_dim = cnn_flat.size(1) + self.boson_hidden
@@ -467,7 +507,7 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
     """
     def __init__(self, input_dim: int, num_classes: int, latent_dim: int = 64,
                  encoder_hidden: List[int] = [256, 128, 64, 32], decoder_hidden: List[int] = [32, 64, 128, 256],
-                 dropout_rate: float = 0.2, n_photons=3):
+                 dropout_rate: float = 0.2, n_photons=3, max_modes=20):
         super().__init__()
         self.input_norm = nn.BatchNorm1d(input_dim)
         
@@ -484,7 +524,7 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
             prev_dim = hidden_dim
         self.encoder = nn.Sequential(*encoder_layers)
 
-        circuit = create_quantum_circuit(prev_dim)
+        circuit, input_state = create_quantum_circuit(prev_dim, n_photons, max_modes)
 
         input_state = [1] * n_photons + [0] * (prev_dim - n_photons)
         self.quantum_norm = MinMaxNorm1d(prev_dim)
