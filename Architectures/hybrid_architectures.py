@@ -422,7 +422,7 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
         input_flat = normalized_x.view(batch_size, -1)
         if self.quantum is None:
             input_dim = input_flat.size(1)
-            self.quantum_norm = MinMaxNorm1d(self.cnn_output_size)
+            self.quantum_norm = MinMaxNorm1d(input_dim)
             circuit, input_state = create_quantum_circuit(input_dim, self.n_photons, self.max_modes)
             self.quantum = QuantumLayer(
                 input_size=input_dim,
