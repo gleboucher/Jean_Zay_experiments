@@ -55,9 +55,12 @@ def create_quantum_circuit(input_size, n_photons, max_modes=20):
     # 1. Left interferometer - trainable transformation
 
     k = input_size // max_modes
-    num_modes = input_size // k
-
-    last_layer = input_size % num_modes
+    if k == 0:
+        num_modes = input_size
+        last_layer = input_size
+    else:
+        num_modes = input_size // k
+        last_layer = input_size % num_modes
     input_state = [1] * n_photons + [0] * (num_modes - n_photons)
     print("number of modes", num_modes, "number of reps", k, "input_size", input_size)
     wl = pcvl.GenericInterferometer(
