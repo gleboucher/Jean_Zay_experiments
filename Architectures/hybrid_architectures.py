@@ -380,7 +380,7 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
     Modified: Image → Normalization → [CNN // Linear] → Concatenation → MLP
     """
     def __init__(self, input_channels: int, num_classes: int, cnn_channels: List[int] = [32, 64],
-                 boson_hidden: int = 128, mlp_hidden: int = 256, dropout_rate: float = 0.2,
+                 boson_hidden: int = 64, mlp_hidden: int = 256, dropout_rate: float = 0.2,
                  n_photons=3, max_modes=20):
         super().__init__()
         self.input_norm = nn.BatchNorm2d(input_channels)
@@ -426,10 +426,10 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
             circuit, input_state = create_quantum_circuit(input_dim, self.n_photons, self.max_modes)
             self.quantum = QuantumLayer(
                 input_size=input_dim,
-                output_size=None,
+                output_size=self.boson_hidden,
                 circuit=circuit,
                 input_state=input_state,  # Random Initial quantum state used only for initialization
-                output_mapping_strategy=OutputMappingStrategy.NONE,
+                output_mapping_strategy=OutputMappingStrategy.LEXGROUPING,
                 input_parameters=["px"],
                 trainable_parameters=["theta"],
                 no_bunching=True,

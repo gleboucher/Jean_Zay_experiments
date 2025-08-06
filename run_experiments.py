@@ -107,7 +107,7 @@ def hyperparameter_search():
     combinations = list(itertools.product(*values))
     
     # Sample a subset for efficiency
-    max_trials = 12
+    max_trials = 18
     if len(combinations) > max_trials:
         combinations = random.sample(combinations, max_trials)
     
