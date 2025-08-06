@@ -8,13 +8,9 @@ from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset
 import numpy as np
 import time
-import os
 from typing import Dict, Tuple, Any
-import argparse
-import json
 from pathlib import Path
-from itertools import product
-from copy import deepcopy
+
 
 from Architectures.hybrid_architectures import get_architecture
 
@@ -136,9 +132,23 @@ class DatasetLoader:
             input_shape = (1, 28, 28)
             num_classes = 10
             
-        elif dataset_name == 'fashion-mnist':
-            train_dataset = datasets.FashionMNIST(data_root, train=True, download=True, transform=train_transform)
-            test_dataset = datasets.FashionMNIST(data_root, train=False, transform=test_transform)
+        elif dataset_name == 'emnist':
+            train_dataset = datasets.EMNIST(
+                root="../datasets", split='letters', train=True, download=False, transform=train_transform
+            )
+            test_dataset = datasets.EMNIST(
+                root="../datasets", split='letters', train=False, download=False, transform=test_transform
+            )
+            input_shape = (1, 28, 28)
+            num_classes = 10
+
+        elif dataset_name == 'kmnist':
+            train_dataset = datasets.KMNIST(
+                root="../datasets",  train=True, download=False, transform=train_transform
+            )
+            test_dataset = datasets.KMNIST(
+                root="../datasets", train=False, download=False, transform=test_transform
+            )
             input_shape = (1, 28, 28)
             num_classes = 10
             
