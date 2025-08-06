@@ -49,7 +49,7 @@ def quick_test():
 def run_small_experiment():
     """Run a small experiment on MNIST with one architecture"""
     config = {
-        'boson_preprocessor_mlp': [''],
+        'architectures': ['variational_boson_ae'],
         'datasets': ['emnist'],
         'num_epochs': 10,  # Quick test
         'output_dir': './test_results',
