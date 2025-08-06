@@ -140,7 +140,7 @@ class DatasetLoader:
                 root="../datasets", split='letters', train=False, download=False, transform=test_transform
             )
             input_shape = (1, 28, 28)
-            num_classes = 10
+            num_classes = 26
 
         elif dataset_name == 'kmnist':
             train_dataset = datasets.KMNIST(

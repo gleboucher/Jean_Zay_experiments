@@ -59,7 +59,7 @@ def create_quantum_circuit(input_size, n_photons, max_modes=20):
         num_modes = input_size
         last_layer = input_size
     else:
-        num_modes = input_size // k
+        num_modes = max_modes
         last_layer = input_size % num_modes
     input_state = [1] * n_photons + [0] * (num_modes - n_photons)
     print("number of modes", num_modes, "number of reps", k, "input_size", input_size)
@@ -76,16 +76,14 @@ def create_quantum_circuit(input_size, n_photons, max_modes=20):
         for i in range(num_modes):  # 4 input features
             px = pcvl.P(f"px{i}_{j}")
             c_var.add(i, pcvl.PS(px))
+        w_enc = pcvl.Circuit(num_modes)
+        for i in range(0, num_modes, 2):
+            w_enc = w_enc // (i, pcvl.BS()) // (i, pcvl.PS(pcvl.P(f"theta_ri{i}_{2}")))
 
         # 3. Right interferometer - trainable transformation
 
-        wr = pcvl.GenericInterferometer(
-            num_modes,
-            lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ri{i}_{j}")) //
-                     pcvl.BS() // pcvl.PS(pcvl.P(f"theta_ro{i}_{j}")),
-            shape=pcvl.InterferometerShape.RECTANGLE
-        )
-        circuit = circuit // c_var // wr
+
+        circuit = circuit // c_var // w_enc
     if last_layer > 0:
         c_var = pcvl.Circuit(num_modes)
         for i in range(last_layer):  # 4 input features
