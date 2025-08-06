@@ -15,6 +15,17 @@ from pathlib import Path
 from Architectures.hybrid_architectures import get_architecture
 
 
+class EMNISTLettersAdjusted(datasets.EMNIST):
+    def __getitem__(self, index):
+        # Récupération image + label d'origine
+        img, target = super().__getitem__(index)
+
+        # Corriger le label (de 1-26 → 0-25)
+        target = target - 1
+
+        return img, target
+
+
 class MNISTFromNPZ(Dataset):
     def __init__(self, npz_path, train=True, transform=None):
         data = np.load(npz_path)
@@ -133,10 +144,10 @@ class DatasetLoader:
             num_classes = 10
             
         elif dataset_name == 'emnist':
-            train_dataset = datasets.EMNIST(
+            train_dataset = EMNISTLettersAdjusted(
                 root="../datasets", split='letters', train=True, download=False, transform=train_transform
             )
-            test_dataset = datasets.EMNIST(
+            test_dataset = EMNISTLettersAdjusted(
                 root="../datasets", split='letters', train=False, download=False, transform=test_transform
             )
             input_shape = (1, 28, 28)
