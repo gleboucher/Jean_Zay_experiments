@@ -294,7 +294,7 @@ class Architecture3_Boson_Decoder(nn.Module):
         
         # Decoder MLP
         decoder_layers = []
-        prev_dim = latent_dim
+        prev_dim = self.quantum.output_size
         for hidden_dim in decoder_hidden:
             decoder_layers.extend([
                 nn.Linear(prev_dim, hidden_dim),
@@ -309,7 +309,7 @@ class Architecture3_Boson_Decoder(nn.Module):
     def forward(self, x):
         batch_size = x.size(0)
         x = x.view(batch_size, -1)
-        x = self.input_norm(x)
+        x = self.quantum_norm(x)
         x = self.quantum(x)
         return self.decoder(x)
 
