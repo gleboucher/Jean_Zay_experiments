@@ -543,7 +543,7 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
         
         # Decoder
         decoder_layers = []
-        prev_dim = latent_dim
+        prev_dim = self.quantum.output_size
         for hidden_dim in decoder_hidden:
             decoder_layers.extend([
                 nn.Linear(prev_dim, hidden_dim),

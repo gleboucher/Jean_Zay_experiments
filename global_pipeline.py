@@ -341,6 +341,8 @@ class HybridTrainer:
         start_time = time.time()
         test_loss, test_acc = self.evaluate(model, test_loader, criterion)
         print(f"Starting training, Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%")
+        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"Total number of trainable parameters: {trainable_params}")
 
         for epoch in range(self.config['num_epochs']):
 
