@@ -62,6 +62,7 @@ def create_quantum_circuit(input_size, n_photons, max_modes=20):
         num_modes = max_modes
         last_layer = input_size % num_modes
     input_state = [1] * n_photons + [0] * (num_modes - n_photons)
+    print(len(input_state))
     print("number of modes", num_modes, "number of reps", k, "input_size", input_size)
     wl = pcvl.GenericInterferometer(
         num_modes,
@@ -99,7 +100,7 @@ def create_quantum_circuit(input_size, n_photons, max_modes=20):
             shape=pcvl.InterferometerShape.RECTANGLE
         )
         circuit = circuit // c_var // wr
-
+    print(circuit.m)
     # Combine all components
     return circuit, input_state
 
