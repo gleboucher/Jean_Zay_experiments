@@ -586,7 +586,7 @@ class CompactCNN(nn.Module):
             nn.ReLU(),
             nn.AdaptiveAvgPool2d((1, 1))  # 128x1x1
         )
-
+        self.quantum = None
         self.classifier = nn.Linear(128, num_classes)
 
     def forward(self, x):
