@@ -566,6 +566,34 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
         latent = self.quantum(encoded)
         return self.decoder(latent)
 
+class CompactCNN(nn.Module):
+    def __init__(self, num_classes=10, input_size=28):
+        super().__init__()
+        # Conv layers
+        self.features = nn.Sequential(
+            nn.Conv2d(1 if input_size == 28 else 3, 32, kernel_size=3, padding=1),  # 32x28x28 (or 32x32x32)
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # 32x14x14
+
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),  # 64x14x14
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # 64x7x7
+
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),  # 128x7x7
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d((1, 1))  # 128x1x1
+        )
+
+        self.classifier = nn.Linear(128, num_classes)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        return self.classifier(x)
+
 
 # Hyperparameter configurations from the memo
 HYPERPARAMETERS = {
@@ -615,7 +643,8 @@ def get_architecture(arch_name: str, input_shape: Tuple[int, ...], num_classes: 
         ),
         'variational_boson_ae': lambda: Architecture8_Variational_Boson_Autoencoder(
             input_dim, num_classes, **config
-        )
+        ),
+        'classical_cnn': lambda: CompactCNN(input_dim, num_classes),
     }
     
     if arch_name not in architectures:
