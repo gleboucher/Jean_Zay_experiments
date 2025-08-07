@@ -744,7 +744,7 @@ def get_architecture(arch_name: str, input_shape: Tuple[int, ...], num_classes: 
         'variational_boson_ae': lambda: Architecture8_Variational_Boson_Autoencoder(
             input_dim, num_classes, **config
         ),
-        'quantum_vit': lambda: VisionTransformer(input_dim, num_classes, **config),
+        'quantum_vit': lambda: VisionTransformer(input_shape[1], num_classes, in_chans=input_channels, **config),
 
         'classical_cnn': lambda: CompactCNN(input_channels, num_classes),
     }
