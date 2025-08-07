@@ -120,8 +120,8 @@ def hyperparameter_search():
     })
     
     all_results = []
-    arch = "boson_preprocessor_mlp"
-    dataset = "mnist"
+    arch = "dual_path_cnn_boson"
+    dataset = "cifar10"
     for i, combo in enumerate(combinations):
         hyperparams = dict(zip(keys, combo))
         hyperparams['network_depth'] = 3  # Fixed
@@ -131,6 +131,9 @@ def hyperparameter_search():
         try:
             results = trainer.train_model(arch, dataset, hyperparams)
             all_results.append(results)
+            Path('./hyperparameter_search').mkdir(exist_ok=True)
+            with open(f'./hyperparameter_search/results_{arch}_{dataset}.json', 'w') as f:
+                json.dump(results, f, indent=2)
         except Exception as e:
             print(f"Trial failed: {e}")
             continue
@@ -142,10 +145,6 @@ def hyperparameter_search():
         print(f"Hyperparams: {best_result['hyperparams']}")
         print(f"Best accuracy: {best_result['best_accuracy']:.2f}%")
         
-        # Save results
-        Path('./hyperparameter_search').mkdir(exist_ok=True)
-        with open(f'./hyperparameter_search/results_{arch}_{dataset}.json', 'w') as f:
-            json.dump(all_results, f, indent=2)
 
 
 def print_architecture_info():
