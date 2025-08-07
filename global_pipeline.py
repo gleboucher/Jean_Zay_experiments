@@ -16,6 +16,10 @@ from Architectures.hybrid_architectures import get_architecture
 
 
 class EMNISTLettersAdjusted(datasets.EMNIST):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
     def __getitem__(self, index):
         # Récupération image + label d'origine
         img, target = super().__getitem__(index)

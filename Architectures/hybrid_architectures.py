@@ -529,7 +529,7 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
 
         circuit, input_state = create_quantum_circuit(prev_dim, n_photons, max_modes)
 
-        input_state = [1] * n_photons + [0] * (prev_dim - n_photons)
+
         self.quantum_norm = MinMaxNorm1d(prev_dim)
         self.quantum = QuantumLayer(
             input_size=prev_dim,
