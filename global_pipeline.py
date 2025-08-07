@@ -148,12 +148,14 @@ class DatasetLoader:
             num_classes = 10
             
         elif dataset_name == 'emnist':
-            train_dataset = EMNISTLettersAdjusted(
+            train_dataset = datasets.EMNIST(
                 root="../datasets", split='letters', train=True, download=False, transform=train_transform
             )
-            test_dataset = EMNISTLettersAdjusted(
+            test_dataset = datasets.EMNIST(
                 root="../datasets", split='letters', train=False, download=False, transform=test_transform
             )
+            train_dataset.targets = train_dataset.targets - 1
+            test_dataset.targets = test_dataset.targets - 1
             input_shape = (1, 28, 28)
             num_classes = 26
 
