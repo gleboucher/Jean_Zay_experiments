@@ -667,11 +667,11 @@ class VisionTransformer(nn.Module):
         return self.head(x)
 
 class CompactCNN(nn.Module):
-    def __init__(self, num_classes=10, input_size=28):
+    def __init__(self, input_channels: int, num_classes: int):
         super().__init__()
         # Conv layers
         self.features = nn.Sequential(
-            nn.Conv2d(1 if input_size == 28 else 3, 32, kernel_size=3, padding=1),  # 32x28x28 (or 32x32x32)
+            nn.Conv2d(input_channels, 32, kernel_size=3, padding=1),  # 32x28x28 (or 32x32x32)
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(2),  # 32x14x14
@@ -746,7 +746,7 @@ def get_architecture(arch_name: str, input_shape: Tuple[int, ...], num_classes: 
         ),
         'quantum_vit': lambda: VisionTransformer(input_dim, num_classes, **config),
 
-        'classical_cnn': lambda: CompactCNN(input_dim, num_classes),
+        'classical_cnn': lambda: CompactCNN(input_channels, num_classes),
     }
     
     if arch_name not in architectures:
