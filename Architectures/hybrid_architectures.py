@@ -630,7 +630,7 @@ class VisionTransformer(nn.Module):
         self.pos_drop = nn.Dropout(p=dropout_rate)
 
         self.blocks = nn.ModuleList([
-            TransformerEncoderBlock(embed_dim, num_heads, mlp_ratio, dropout)
+            TransformerEncoderBlock(embed_dim, num_heads, mlp_ratio, dropout_rate)
             for _ in range(depth)
         ])
 
