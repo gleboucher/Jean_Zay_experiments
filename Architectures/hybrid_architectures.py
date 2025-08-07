@@ -620,14 +620,14 @@ class TransformerEncoderBlock(nn.Module):
 # ======================================
 class VisionTransformer(nn.Module):
     def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
-                 depth=6, num_heads=8, mlp_ratio=4.0, dropout=0.2, n_photons=3, max_modes=20):
+                 depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20):
         super().__init__()
         self.patch_embed = PatchEmbedding(input_size, patch_size, in_chans, embed_dim)
         num_patches = self.patch_embed.num_patches
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
-        self.pos_drop = nn.Dropout(p=dropout)
+        self.pos_drop = nn.Dropout(p=dropout_rate)
 
         self.blocks = nn.ModuleList([
             TransformerEncoderBlock(embed_dim, num_heads, mlp_ratio, dropout)
