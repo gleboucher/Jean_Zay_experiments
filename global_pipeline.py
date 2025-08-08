@@ -249,7 +249,7 @@ class HybridTrainer:
         total_loss = 0.0
         correct = 0
         total = 0
-        
+
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(self.device), target.to(self.device)
             
@@ -262,6 +262,9 @@ class HybridTrainer:
             total_loss += loss.item()
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
+            if batch_idx==100:
+                print(f"GPU memory allocated: {torch.cuda.memory_allocated() / 1024 ** 2:.2f} MB")
+                print(f"GPU memory reserved: {torch.cuda.memory_reserved() / 1024 ** 2:.2f} MB")
             total += target.size(0)
 
         
