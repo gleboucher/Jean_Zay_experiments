@@ -124,9 +124,10 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
     """
     def __init__(self, input_dim: int, num_classes: int, hidden_dims=None,
                  pca_components: int = 16, dropout_rate: float = 0.2,
-                 network_depth=None, n_photons=3, max_modes=20):
+                 network_depth=None, n_photons=3, max_modes=20,
+                 output_strategy=None, output_size=None):
         super().__init__()
-
+        output_strategy = map_output_strategy(output_strategy)
         if hidden_dims is None:
             hidden_dims = [128]
             if network_depth is not None:
@@ -138,10 +139,10 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
 
         self.quantum = QuantumLayer(
                     input_size=pca_components,
-                    output_size=None,
+                    output_size=output_size,
                     circuit=circuit,
                     input_state=input_state,# Random Initial quantum state used only for initialization
-                    output_mapping_strategy=OutputMappingStrategy.NONE,
+                    output_mapping_strategy=output_strategy,
                     input_parameters=["px"],
                     trainable_parameters=["theta"],
                     no_bunching=True,
@@ -189,7 +190,8 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
     """
     def __init__(self, input_channels: int, num_classes: int, cnn_channels=None,
                  hidden_dims=None, dropout_rate: float = 0.1, n_photons=3,
-                 network_depth=None, boson_modes=20, output_mapping=None):
+                 network_depth=None, boson_modes=20,
+                 output_strategy=None, output_size=None):
         super().__init__()
         if cnn_channels is None:
             cnn_channels = [32, 64, 32]
@@ -197,10 +199,11 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
             hidden_dims = [128]
             if network_depth is not None:
                 hidden_dims *=network_depth
-        if output_mapping is None:
-            self.output_quantum_size = None
         self.input_norm = nn.BatchNorm2d(input_channels)
         self.n_photons = n_photons
+
+        self.output_size = output_size
+        self.output_strategy = map_output_strategy(output_strategy)
         # CNN layers
         cnn_layers = []
         prev_channels = input_channels
@@ -242,10 +245,10 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
 
             self.quantum = QuantumLayer(
                 input_size=self.cnn_output_size,
-                output_size=None,
+                output_size=self.output_size,
                 circuit=circuit,
                 input_state=input_state,  # Random Initial quantum state used only for initialization
-                output_mapping_strategy=OutputMappingStrategy.NONE,
+                output_mapping_strategy=self.output_strategy,
                 input_parameters=["px"],
                 trainable_parameters=["theta"],
                 no_bunching=True,
@@ -278,16 +281,17 @@ class Architecture3_Boson_Decoder(nn.Module):
     """
     def __init__(self, input_dim: int, num_classes: int, latent_dim: int = 64,
                  decoder_hidden: List[int] = [128, 256], dropout_rate: float = 0.2,
-                 n_photons=3, max_modes=20):
+                 n_photons=3, max_modes=20, output_strategy=None, output_size=None):
         super().__init__()
         self.quantum_norm = MinMaxNorm1d(input_dim)
         circuit, input_state = create_quantum_circuit(input_dim, n_photons, max_modes)
+        output_strategy = map_output_strategy(output_strategy)
         self.quantum = QuantumLayer(
             input_size=input_dim,
-            output_size=None,
+            output_size=output_size,
             circuit=circuit,
             input_state=input_state,  # Random Initial quantum state used only for initialization
-            output_mapping_strategy=OutputMappingStrategy.NONE,
+            output_mapping_strategy=output_strategy,
             input_parameters=["px"],
             trainable_parameters=["theta"],
             no_bunching=True,
@@ -322,13 +326,15 @@ class Architecture4_Boson_Layer_NN(nn.Module):
     Modified: Input → Normalization → Dense → Linear → Dense → Output
     """
     def __init__(self, input_dim: int, num_classes: int, hidden_dims=None,
-                 boson_dim: int = 64, dropout_rate: float = 0.2,
-                 n_photons=3, network_depth=None, max_modes=20):
+                 dropout_rate: float = 0.2,
+                 n_photons=3, network_depth=None, max_modes=20,
+                 output_strategy="lexgrouping", output_size=64):
         super().__init__()
         if hidden_dims is None:
             hidden_dims = [16]
             if network_depth is not None:
                 hidden_dims *= network_depth
+        output_strategy = map_output_strategy(output_strategy)
         self.input_norm = nn.BatchNorm1d(input_dim)
         mlp_layers = []
         prev_dim = input_dim
@@ -348,22 +354,24 @@ class Architecture4_Boson_Layer_NN(nn.Module):
 
         self.quantum = QuantumLayer(
             input_size=hidden_dims[-1],
-            output_size=boson_dim,
+            output_size=output_size,
             circuit=circuit,
             input_state=input_state,  # Random Initial quantum state used only for initialization
-            output_mapping_strategy=OutputMappingStrategy.LEXGROUPING,
+            output_mapping_strategy=output_strategy,
             input_parameters=["px"],
             trainable_parameters=["theta"],
             no_bunching=True,
             device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         )
-        print(f"Quantum Layer definer with input size {hidden_dims[-1]} and output size {boson_dim} ")
+        print(f"Quantum Layer definer with input size {hidden_dims[-1]} and output size {output_size} ")
+        if output_size is None:
+            output_size = self.quantum.output_size
         self.quantum_norm = MinMaxNorm1d(hidden_dims[-1])
         self.dense2 = nn.Sequential(
-            nn.BatchNorm1d(boson_dim),
+            nn.BatchNorm1d(output_size),
             nn.ReLU(),
             nn.Dropout(dropout_rate),
-            nn.Linear(boson_dim, num_classes)
+            nn.Linear(output_size, num_classes)
         )
         
     def forward(self, x):
@@ -382,8 +390,8 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
     Modified: Image → Normalization → [CNN // Linear] → Concatenation → MLP
     """
     def __init__(self, input_channels: int, num_classes: int, cnn_channels: List[int] = [32, 64],
-                 boson_hidden: int = 64, mlp_hidden: int = 256, dropout_rate: float = 0.2,
-                 n_photons=3, max_modes=20):
+                 output_size: int = 64, mlp_hidden: int = 256, dropout_rate: float = 0.2,
+                 n_photons=3, max_modes=20, output_strategy="lexgrouping"):
         super().__init__()
         self.input_norm = nn.BatchNorm2d(input_channels)
         
@@ -407,7 +415,8 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
         self.max_modes = max_modes
         # MLP for concatenated features
         self.mlp = None
-        self.boson_hidden = boson_hidden
+        self.output_strategy = map_output_strategy(output_strategy)
+        self.boson_hidden = output_size
         self.mlp_hidden = mlp_hidden
         self.num_classes = num_classes
         self.dropout_rate = dropout_rate
@@ -431,13 +440,14 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
                 output_size=self.boson_hidden,
                 circuit=circuit,
                 input_state=input_state,  # Random Initial quantum state used only for initialization
-                output_mapping_strategy=OutputMappingStrategy.LEXGROUPING,
+                output_mapping_strategy=self.output_strategy,
                 input_parameters=["px"],
                 trainable_parameters=["theta"],
                 no_bunching=True,
                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             )
-            
+            if self.boson_hidden is None:
+                self.boson_hidden = self.quantum.output_size
             # Initialize MLP after knowing feature dimensions
             concat_dim = cnn_flat.size(1) + self.boson_hidden
             self.mlp = nn.Sequential(
@@ -510,10 +520,10 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
     """
     def __init__(self, input_dim: int, num_classes: int, latent_dim: int = 64,
                  encoder_hidden: List[int] = [256, 128, 64, 32], decoder_hidden: List[int] = [32, 64, 128, 256],
-                 dropout_rate: float = 0.2, n_photons=3, max_modes=20):
+                 dropout_rate: float = 0.2, n_photons=3, max_modes=20, output_strategy=None, output_size=None):
         super().__init__()
         self.input_norm = nn.BatchNorm1d(input_dim)
-        
+        output_strategy = map_output_strategy(output_strategy)
         # Encoder
         encoder_layers = []
         prev_dim = input_dim
@@ -533,10 +543,10 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
         self.quantum_norm = MinMaxNorm1d(prev_dim)
         self.quantum = QuantumLayer(
             input_size=prev_dim,
-            output_size=None,
+            output_size=output_size,
             circuit=circuit,
             input_state=input_state,  # Random Initial quantum state used only for initialization
-            output_mapping_strategy=OutputMappingStrategy.NONE,
+            output_mapping_strategy=output_strategy,
             input_parameters=["px"],
             trainable_parameters=["theta"],
             no_bunching=True,
@@ -685,19 +695,7 @@ class ClassicalVisionTransformer(nn.Module):
             for _ in range(depth)
         ])
 
-        circuit, input_state = create_quantum_circuit(embed_dim, n_photons, max_modes)
-        self.quantum_norm = MinMaxNorm1d(embed_dim)
-        self.quantum = QuantumLayer(
-            input_size=embed_dim,
-            output_size=None,
-            circuit=circuit,
-            input_state=input_state,  # Random Initial quantum state used only for initialization
-            output_mapping_strategy=OutputMappingStrategy.NONE,
-            input_parameters=["px"],
-            trainable_parameters=["theta"],
-            no_bunching=True,
-            device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        )
+
         self.norm = nn.LayerNorm(self.quantum.output_size)
         self.head = nn.Linear(self.quantum.output_size, num_classes)
         nn.init.trunc_normal_(self.pos_embed, std=0.02)

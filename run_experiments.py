@@ -57,8 +57,8 @@ def run_small_experiment(gpu, arch, dataset):
     elif gpu == "h100":
         batch_size = 256
     config = {
-        'architectures': arch,
-        'datasets': dataset,
+        'architectures': list(arch),
+        'datasets': list(dataset),
         'num_epochs': 10,  # Quick test
         'output_dir': './test_results',
         'data_root': './data',
@@ -113,7 +113,9 @@ def hyperparameter_search(gpu, arch, dataset):
         'batch_size': [batch_size],
         'dropout_rate': [0.1],
         'max_modes': [12, 20, 32],
-        'n_photons': [2, 3, 4]
+        'n_photons': [2, 3, 4],
+        'output_strategy':[None, "lexgrouping", "modgrouping"],
+        'output_size': [32, 64]
     }
     
     # Generate all combinations
