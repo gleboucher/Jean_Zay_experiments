@@ -47,8 +47,9 @@ def quick_test():
     print("All tests passed! ✓")
 
 
-def run_small_experiment(gpu):
+def run_small_experiment(gpu, arch, dataset):
     """Run a small experiment on MNIST with one architecture"""
+    batch_size = 32
     if gpu == "v100":
         batch_size = 32
     elif gpu == "a100":
@@ -56,8 +57,8 @@ def run_small_experiment(gpu):
     elif gpu == "h100":
         batch_size = 256
     config = {
-        'architectures': ['quantum_vit'],
-        'datasets': ['mnist'],
+        'architectures': arch,
+        'datasets': dataset,
         'num_epochs': 10,  # Quick test
         'output_dir': './test_results',
         'data_root': './data',
@@ -93,7 +94,7 @@ def run_full_experiment():
     run_experiments(config)
 
 
-def hyperparameter_search(gpu):
+def hyperparameter_search(gpu, arch, dataset):
     """Run hyperparameter search on a subset"""
     import itertools
     import random
@@ -134,8 +135,7 @@ def hyperparameter_search(gpu):
     })
     
     all_results = []
-    arch = "dual_path_cnn_boson"
-    dataset = "cifar10"
+
     for i, combo in enumerate(combinations):
         hyperparams = dict(zip(keys, combo))
         hyperparams['network_depth'] = 3  # Fixed
@@ -192,17 +192,24 @@ def main():
                        default='test', help='Experiment mode')
     parser.add_argument('--gpu', choices=['v100', 'a100', 'h100'],
                         default='test', help='Gpu choice mode')
+    parser.add_argument('--arch', choices=['boson_preprocessor_mlp', 'cnn_boson_mlp',
+                                           'boson_layer_nn', 'dual_path_cnn_boson', 'quantum_vit',
+                                           'variational_boson_ae', 'boson_decoder', 'classical_vit',
+                                           'classical_cnn'],
+                        help='Architecture mode')
+    parser.add_argument('--dataset', choices=['mnist', 'emnist', 'kmnist', 'cifar10'],
+                        default='cifar10',)
     
     args = parser.parse_args()
     
     if args.mode == 'test':
         quick_test()
     elif args.mode == 'small':
-        run_small_experiment(args.gpu)
+        run_small_experiment(args.gpu, args.arch, args.dataset)
     elif args.mode == 'full':
         run_full_experiment()
     elif args.mode == 'hypersearch':
-        hyperparameter_search(args.gpu)
+        hyperparameter_search(args.gpu, args.arch, args.dataset)
     elif args.mode == 'info':
         print_architecture_info()
 

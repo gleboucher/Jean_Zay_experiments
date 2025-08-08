@@ -797,7 +797,8 @@ def get_architecture(arch_name: str, input_shape: Tuple[int, ...], num_classes: 
 
         'classical_cnn': lambda: CompactCNN(input_channels, num_classes),
 
-        'classical_vit':
+        'classical_vit': lambda: ClassicalVisionTransformer(input_shape[1], num_classes, in_chans=input_channels, **config),
+
     }
     
     if arch_name not in architectures:
