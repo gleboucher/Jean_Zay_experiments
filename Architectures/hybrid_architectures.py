@@ -618,7 +618,7 @@ class TransformerEncoderBlock(nn.Module):
 # ======================================
 # Vision Transformer
 # ======================================
-class VisionTransformer(nn.Module):
+class QuantumVisionTransformer(nn.Module):
     def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
                  depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20):
         super().__init__()
@@ -664,6 +664,54 @@ class VisionTransformer(nn.Module):
             x = blk(x)
         x = self.quantum_norm(x[:, 0])
         x = self.quantum(x)
+        x = self.norm(x)
+        return self.head(x)
+
+
+class ClassicalVisionTransformer(nn.Module):
+    def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
+                 depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2):
+        super().__init__()
+        print(input_size, in_chans)
+        self.patch_embed = PatchEmbedding(input_size, patch_size, in_chans, embed_dim)
+        num_patches = self.patch_embed.num_patches
+
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
+        self.pos_drop = nn.Dropout(p=dropout_rate)
+
+        self.blocks = nn.ModuleList([
+            TransformerEncoderBlock(embed_dim, num_heads, mlp_ratio, dropout_rate)
+            for _ in range(depth)
+        ])
+
+        circuit, input_state = create_quantum_circuit(embed_dim, n_photons, max_modes)
+        self.quantum_norm = MinMaxNorm1d(embed_dim)
+        self.quantum = QuantumLayer(
+            input_size=embed_dim,
+            output_size=None,
+            circuit=circuit,
+            input_state=input_state,  # Random Initial quantum state used only for initialization
+            output_mapping_strategy=OutputMappingStrategy.NONE,
+            input_parameters=["px"],
+            trainable_parameters=["theta"],
+            no_bunching=True,
+            device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        )
+        self.norm = nn.LayerNorm(self.quantum.output_size)
+        self.head = nn.Linear(self.quantum.output_size, num_classes)
+        nn.init.trunc_normal_(self.pos_embed, std=0.02)
+        nn.init.trunc_normal_(self.cls_token, std=0.02)
+
+    def forward(self, x):
+        x = self.patch_embed(x)
+        B = x.size(0)
+        cls_tokens = self.cls_token.expand(B, -1, -1)
+        x = torch.cat((cls_tokens, x), dim=1)
+        x = x + self.pos_embed
+        x = self.pos_drop(x)
+        for blk in self.blocks:
+            x = blk(x)
         x = self.norm(x)
         return self.head(x)
 
@@ -745,9 +793,11 @@ def get_architecture(arch_name: str, input_shape: Tuple[int, ...], num_classes: 
         'variational_boson_ae': lambda: Architecture8_Variational_Boson_Autoencoder(
             input_dim, num_classes, **config
         ),
-        'quantum_vit': lambda: VisionTransformer(input_shape[1], num_classes, in_chans=input_channels, **config),
+        'quantum_vit': lambda: QuantumVisionTransformer(input_shape[1], num_classes, in_chans=input_channels, **config),
 
         'classical_cnn': lambda: CompactCNN(input_channels, num_classes),
+
+        'classical_vit':
     }
     
     if arch_name not in architectures:

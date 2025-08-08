@@ -2,6 +2,7 @@
 """
 Example script to run hybrid architecture experiments
 """
+from distutils.command.config import config
 
 import torch
 import json
@@ -46,8 +47,14 @@ def quick_test():
     print("All tests passed! ✓")
 
 
-def run_small_experiment():
+def run_small_experiment(gpu):
     """Run a small experiment on MNIST with one architecture"""
+    if gpu == "v100":
+        batch_size = 32
+    elif gpu == "a100":
+        batch_size = 256
+    elif gpu == "h100":
+        batch_size = 256
     config = {
         'architectures': ['quantum_vit'],
         'datasets': ['mnist'],
@@ -57,7 +64,7 @@ def run_small_experiment():
         'num_workers': 0,  # Avoid multiprocessing issues
         'learning_rate': 1e-3,
         'optimizer': 'adam',
-        'batch_size': 32,
+        'batch_size': batch_size,
         'network_depth': 2,
         'dropout_rate': 0.2,
     }
@@ -86,16 +93,23 @@ def run_full_experiment():
     run_experiments(config)
 
 
-def hyperparameter_search():
+def hyperparameter_search(gpu):
     """Run hyperparameter search on a subset"""
     import itertools
     import random
     
     # Define search space (reduced for efficiency)
+    batch_size = 32
+    if gpu == "v100":
+        batch_size = 32
+    elif gpu == "a100":
+        batch_size = 256
+    elif gpu == "h100":
+        batch_size = 256
     search_space = {
         'learning_rate': [1e-3],
         'optimizer': ['adam'],
-        'batch_size': [64],
+        'batch_size': [batch_size],
         'dropout_rate': [0.1],
         'max_modes': [12, 20, 32],
         'n_photons': [2, 3, 4]
@@ -176,17 +190,19 @@ def main():
     parser = argparse.ArgumentParser(description='Run hybrid architecture experiments')
     parser.add_argument('--mode', choices=['test', 'small', 'full', 'hypersearch', 'info'],
                        default='test', help='Experiment mode')
+    parser.add_argument('--gpu', choices=['v100', 'a100', 'h100'],
+                        default='test', help='Gpu choice mode')
     
     args = parser.parse_args()
     
     if args.mode == 'test':
         quick_test()
     elif args.mode == 'small':
-        run_small_experiment()
+        run_small_experiment(args.gpu)
     elif args.mode == 'full':
         run_full_experiment()
     elif args.mode == 'hypersearch':
-        hyperparameter_search()
+        hyperparameter_search(args.gpu)
     elif args.mode == 'info':
         print_architecture_info()
 
