@@ -315,8 +315,11 @@ class HybridTrainer:
 
         # Create model
         model_config = {
+            'max_modes':hyperparams['max_modes'],
+            'output_strategy':hyperparams['output_strategy'],
+            'output_size': hyperparams['output_size'],
+            'n_photons': hyperparams['n_photons'],
             'dropout_rate': hyperparams['dropout_rate'],
-
         }
 
         model = get_architecture(architecture_name, input_shape, num_classes, model_config)

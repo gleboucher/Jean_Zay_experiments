@@ -127,6 +127,8 @@ class Architecture1_BosonPreprocessor_MLP(nn.Module):
                  network_depth=None, n_photons=3, max_modes=20,
                  output_strategy=None, output_size=None):
         super().__init__()
+        if output_strategy is None:
+            output_size = None
         output_strategy = map_output_strategy(output_strategy)
         if hidden_dims is None:
             hidden_dims = [128]
@@ -201,7 +203,8 @@ class Architecture2_CNN_Boson_MLP(nn.Module):
                 hidden_dims *=network_depth
         self.input_norm = nn.BatchNorm2d(input_channels)
         self.n_photons = n_photons
-
+        if output_strategy is None:
+            output_size = None
         self.output_size = output_size
         self.output_strategy = map_output_strategy(output_strategy)
         # CNN layers
@@ -285,6 +288,8 @@ class Architecture3_Boson_Decoder(nn.Module):
         super().__init__()
         self.quantum_norm = MinMaxNorm1d(input_dim)
         circuit, input_state = create_quantum_circuit(input_dim, n_photons, max_modes)
+        if output_strategy is None:
+            output_size = None
         output_strategy = map_output_strategy(output_strategy)
         self.quantum = QuantumLayer(
             input_size=input_dim,
@@ -334,6 +339,8 @@ class Architecture4_Boson_Layer_NN(nn.Module):
             hidden_dims = [16]
             if network_depth is not None:
                 hidden_dims *= network_depth
+        if output_strategy is None:
+            output_size = None
         output_strategy = map_output_strategy(output_strategy)
         self.input_norm = nn.BatchNorm1d(input_dim)
         mlp_layers = []
@@ -415,6 +422,9 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
         self.max_modes = max_modes
         # MLP for concatenated features
         self.mlp = None
+
+        if output_strategy is None:
+            output_size = None
         self.output_strategy = map_output_strategy(output_strategy)
         self.boson_hidden = output_size
         self.mlp_hidden = mlp_hidden
@@ -465,53 +475,6 @@ class Architecture5_DualPath_CNN_Boson(nn.Module):
         return self.mlp(combined_features)
 
 
-class Architecture7_Boson_PCA_Classifier(nn.Module):
-    """
-    Image → PCA → Boson Sampler → Histogram → Classifier
-    Modified: Image → Normalization → PCA → Linear → Classifier
-    """
-    def __init__(self, input_dim: int, num_classes: int, pca_components: int = 32,
-                 hidden_dims: List[int] = [128, 64], dropout_rate: float = 0.2):
-        super().__init__()
-        self.pca_components = pca_components
-        self.pca = None
-        self.scaler = StandardScaler()
-        
-        self.quantum = BosonSamplerReplacement(
-            pca_components, hidden_dims[0], dropout_rate=dropout_rate
-        )
-        
-        # Classifier
-        classifier_layers = []
-        prev_dim = hidden_dims[0]
-        for hidden_dim in hidden_dims[1:]:
-            classifier_layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.BatchNorm1d(hidden_dim),
-                nn.ReLU(),
-                nn.Dropout(dropout_rate)
-            ])
-            prev_dim = hidden_dim
-        classifier_layers.append(nn.Linear(prev_dim, num_classes))
-        self.classifier = nn.Sequential(*classifier_layers)
-        
-    def forward(self, x):
-        batch_size = x.size(0)
-        x = x.view(batch_size, -1)
-        
-        # Apply PCA if fitted
-        if self.pca is not None:
-            x_np = x.detach().cpu().numpy()
-            x_scaled = self.scaler.transform(x_np)
-            x_pca = self.pca.transform(x_scaled)
-            x = torch.tensor(x_pca, dtype=torch.float32, device=x.device)
-        else:
-            # If PCA not fitted, use input as-is (for initialization)
-            warnings.warn("PCA not fitted yet, using raw input")
-            
-        x = self.quantum(x)
-        return self.classifier(x)
-
 
 class Architecture8_Variational_Boson_Autoencoder(nn.Module):
     """
@@ -523,6 +486,8 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
                  dropout_rate: float = 0.2, n_photons=3, max_modes=20, output_strategy=None, output_size=None):
         super().__init__()
         self.input_norm = nn.BatchNorm1d(input_dim)
+        if output_strategy is None:
+            output_size = None
         output_strategy = map_output_strategy(output_strategy)
         # Encoder
         encoder_layers = []
@@ -630,9 +595,14 @@ class TransformerEncoderBlock(nn.Module):
 # ======================================
 class QuantumVisionTransformer(nn.Module):
     def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
-                 depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20):
+                 depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20,
+                 output_strategy=None, output_size=None):
         super().__init__()
         print(input_size, in_chans)
+        if output_strategy is None:
+            output_size = None
+        output_strategy = map_output_strategy(output_strategy)
+
         self.patch_embed = PatchEmbedding(input_size, patch_size, in_chans, embed_dim)
         num_patches = self.patch_embed.num_patches
 
@@ -649,10 +619,10 @@ class QuantumVisionTransformer(nn.Module):
         self.quantum_norm = MinMaxNorm1d(embed_dim)
         self.quantum = QuantumLayer(
             input_size=embed_dim,
-            output_size=None,
+            output_size=output_size,
             circuit=circuit,
             input_state=input_state,  # Random Initial quantum state used only for initialization
-            output_mapping_strategy=OutputMappingStrategy.NONE,
+            output_mapping_strategy=output_strategy,
             input_parameters=["px"],
             trainable_parameters=["theta"],
             no_bunching=True,
@@ -680,7 +650,8 @@ class QuantumVisionTransformer(nn.Module):
 
 class ClassicalVisionTransformer(nn.Module):
     def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
-                 depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2):
+                 depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20,
+                 output_strategy=None, output_size=None):
         super().__init__()
         print(input_size, in_chans)
         self.patch_embed = PatchEmbedding(input_size, patch_size, in_chans, embed_dim)

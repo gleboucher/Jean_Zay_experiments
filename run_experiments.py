@@ -94,28 +94,30 @@ def run_full_experiment():
     run_experiments(config)
 
 
-def hyperparameter_search(gpu, arch, dataset):
+def hyperparameter_search(gpu, arch, dataset, batch_size):
     """Run hyperparameter search on a subset"""
     import itertools
     import random
     
     # Define search space (reduced for efficiency)
-    batch_size = 32
-    if gpu == "v100":
-        batch_size = 32
-    elif gpu == "a100":
-        batch_size = 256
-    elif gpu == "h100":
-        batch_size = 256
+    if batch_size is None:
+        if gpu == "v100":
+            batch_size = 32
+        elif gpu == "a100":
+            batch_size = 128
+        elif gpu == "h100":
+            batch_size = 256
+
+
     search_space = {
         'learning_rate': [1e-3],
         'optimizer': ['adam'],
         'batch_size': [batch_size],
-        'dropout_rate': [0.1],
-        'max_modes': [12, 20, 32],
-        'n_photons': [2, 3, 4],
+        'dropout_rate': [0.15],
+        'max_modes': [12, 20, 32, 50, 80],
+        'n_photons': [3],
         'output_strategy':[None, "lexgrouping", "modgrouping"],
-        'output_size': [32, 64]
+        'output_size': [32]
     }
     
     # Generate all combinations
@@ -149,7 +151,7 @@ def hyperparameter_search(gpu, arch, dataset):
             all_results.append(results)
             Path('./hyperparameter_search').mkdir(exist_ok=True)
             with open(f'./hyperparameter_search/results_{arch}_{dataset}.json', 'w') as f:
-                json.dump(results, f, indent=2)
+                json.dump(all_results, f, indent=2)
         except Exception as e:
             print(f"Trial failed: {e}")
             continue
@@ -161,7 +163,6 @@ def hyperparameter_search(gpu, arch, dataset):
         print(f"Hyperparams: {best_result['hyperparams']}")
         print(f"Best accuracy: {best_result['best_accuracy']:.2f}%")
         
-
 
 def print_architecture_info():
     """Print information about available architectures"""
@@ -201,7 +202,9 @@ def main():
                         help='Architecture mode')
     parser.add_argument('--dataset', choices=['mnist', 'emnist', 'kmnist', 'cifar10'],
                         default='cifar10',)
-    
+    parser.add_argument('--batch_size',
+                        default=None)
+
     args = parser.parse_args()
     
     if args.mode == 'test':
@@ -211,7 +214,7 @@ def main():
     elif args.mode == 'full':
         run_full_experiment()
     elif args.mode == 'hypersearch':
-        hyperparameter_search(args.gpu, args.arch, args.dataset)
+        hyperparameter_search(args.gpu, args.arch, args.dataset, args.batch_size)
     elif args.mode == 'info':
         print_architecture_info()
 
