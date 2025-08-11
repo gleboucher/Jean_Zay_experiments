@@ -71,6 +71,10 @@ def run_small_experiment(gpu, arch, dataset):
         'batch_size': batch_size,
         'network_depth': 2,
         'dropout_rate': 0.2,
+        'max_modes': 20,
+        'n_photons': 3,
+        'output_strategy': None,
+        'output_size': None,
     }
     
     print("Running small experiment...")
