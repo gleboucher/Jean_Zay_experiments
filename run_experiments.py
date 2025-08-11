@@ -56,10 +56,9 @@ def run_small_experiment(gpu, arch, dataset):
         batch_size = 256
     elif gpu == "h100":
         batch_size = 256
-    arch = list(arch)
-    print([a for a in arch])
-    dataset = list(dataset)
-    print([d for d in dataset])
+
+    arch = [arch]
+    dataset = [dataset]
     config = {
         'architectures': arch,
         'datasets': dataset,
