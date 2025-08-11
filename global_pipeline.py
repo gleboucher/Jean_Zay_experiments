@@ -256,6 +256,21 @@ class HybridTrainer:
             optimizer.zero_grad()
             output = model(data)
             loss = criterion(output, target)
+            if batch_idx==22:
+                alloc_before = torch.cuda.memory_allocated() / 1024 ** 2
+                reserved_before = torch.cuda.memory_reserved() / 1024 ** 2
+
+                loss.backward()
+
+                # Après backward
+                alloc_after = torch.cuda.memory_allocated() / 1024 ** 2
+                reserved_after = torch.cuda.memory_reserved() / 1024 ** 2
+
+                print(f"Before backward: Alloc {alloc_before:.2f} MB, Reserved {reserved_before:.2f} MB")
+                print(f"After backward : Alloc {alloc_after:.2f} MB, Reserved {reserved_after:.2f} MB")
+                print(torch.cuda.max_memory_allocated() / 1024 ** 2, "MB max alloués")
+                print(torch.cuda.max_memory_reserved() / 1024 ** 2, "MB max réservés")
+                print("-" * 50)
             loss.backward()
             optimizer.step()
             
@@ -393,12 +408,8 @@ class HybridTrainer:
                 results['best_accuracy'] = best_accuracy
             
             scheduler.step()
-            
-            if epoch == 8:
-                print(torch.cuda.memory_allocated() / 1024 ** 2, "MB alloués")
-                print(torch.cuda.memory_reserved() / 1024 ** 2, "MB réservés (cache)")
-                print(torch.cuda.max_memory_allocated() / 1024 ** 2, "MB max alloués")
-                print(torch.cuda.max_memory_reserved() / 1024 ** 2, "MB max réservés")
+
+
             print(f'Epoch {epoch}: Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%, '
                   f'Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%')
         
