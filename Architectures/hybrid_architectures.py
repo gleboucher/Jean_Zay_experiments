@@ -654,6 +654,7 @@ class ClassicalVisionTransformer(nn.Module):
                  output_strategy=None, output_size=None):
         super().__init__()
         print(input_size, in_chans)
+        self.quantum = None
         self.patch_embed = PatchEmbedding(input_size, patch_size, in_chans, embed_dim)
         num_patches = self.patch_embed.num_patches
 
