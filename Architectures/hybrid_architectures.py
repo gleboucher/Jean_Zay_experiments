@@ -667,9 +667,9 @@ class ClassicalVisionTransformer(nn.Module):
             for _ in range(depth)
         ])
 
+        self.norm = nn.LayerNorm(embed_dim)
+        self.head = nn.Linear(embed_dim, num_classes)
 
-        self.norm = nn.LayerNorm(self.quantum.output_size)
-        self.head = nn.Linear(self.quantum.output_size, num_classes)
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
         nn.init.trunc_normal_(self.cls_token, std=0.02)
 
@@ -683,7 +683,7 @@ class ClassicalVisionTransformer(nn.Module):
         for blk in self.blocks:
             x = blk(x)
         x = self.norm(x)
-        return self.head(x)
+        return self.head(x[:, 0])
 
 class CompactCNN(nn.Module):
     def __init__(self, input_channels: int, num_classes: int):
