@@ -115,7 +115,7 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
             batch_size = 128
         elif gpu == "h100":
             batch_size = 256
-
+    print(batch_size)
 
     search_space = {
         'learning_rate': [1e-3],
