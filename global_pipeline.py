@@ -394,7 +394,11 @@ class HybridTrainer:
             
             scheduler.step()
             
-
+            if epoch == 8:
+                print(torch.cuda.memory_allocated() / 1024 ** 2, "MB alloués")
+                print(torch.cuda.memory_reserved() / 1024 ** 2, "MB réservés (cache)")
+                print(torch.cuda.max_memory_allocated() / 1024 ** 2, "MB max alloués")
+                print(torch.cuda.max_memory_reserved() / 1024 ** 2, "MB max réservés")
             print(f'Epoch {epoch}: Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%, '
                   f'Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%')
         
