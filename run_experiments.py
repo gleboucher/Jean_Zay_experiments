@@ -56,9 +56,13 @@ def run_small_experiment(gpu, arch, dataset):
         batch_size = 256
     elif gpu == "h100":
         batch_size = 256
+    arch = list(arch)
+    print([a for a in arch])
+    dataset = list(dataset)
+    print([d for d in dataset])
     config = {
-        'architectures': list(arch),
-        'datasets': list(dataset),
+        'architectures': arch,
+        'datasets': dataset,
         'num_epochs': 10,  # Quick test
         'output_dir': './test_results',
         'data_root': './data',
