@@ -419,16 +419,10 @@ def run_experiments(config: Dict[str, Any]):
     for arch_name in architectures:
         for dataset_name in datasets:
             # Use default hyperparameters or sample from ranges
-            hyperparams = {
-                'learning_rate': config.get('learning_rate', 1e-3),
-                'optimizer': config.get('optimizer', 'adam'),
-                'batch_size': config.get('batch_size', 64),
-                'dropout_rate': config.get('dropout_rate', 0.2),
-                'weight_decay': config.get('weight_decay', 1e-4)
-            }
+
 
             #try:
-            results = trainer.train_model(arch_name, dataset_name, hyperparams)
+            results = trainer.train_model(arch_name, dataset_name, config)
             all_results.append(results)
 
             # Save intermediate results

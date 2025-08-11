@@ -67,6 +67,7 @@ def run_small_experiment(gpu, arch, dataset):
         'data_root': './data',
         'num_workers': 0,  # Avoid multiprocessing issues
         'learning_rate': 1e-3,
+        'weight_decay': 1e-4,
         'optimizer': 'adam',
         'batch_size': batch_size,
         'network_depth': 2,
