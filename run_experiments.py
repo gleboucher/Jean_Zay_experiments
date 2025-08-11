@@ -62,7 +62,7 @@ def run_small_experiment(gpu, arch, dataset):
     config = {
         'architectures': arch,
         'datasets': dataset,
-        'num_epochs': 10,  # Quick test
+        'num_epochs': 20,  # Quick test
         'output_dir': './test_results',
         'data_root': './data',
         'num_workers': 0,  # Avoid multiprocessing issues
