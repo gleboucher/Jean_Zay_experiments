@@ -271,7 +271,8 @@ class HybridTrainer:
                 print(torch.cuda.max_memory_allocated() / 1024 ** 2, "MB max alloués")
                 print(torch.cuda.max_memory_reserved() / 1024 ** 2, "MB max réservés")
                 print("-" * 50)
-            loss.backward()
+            else:
+                loss.backward()
             optimizer.step()
             
             total_loss += loss.item()
