@@ -88,7 +88,7 @@ def create_quantum_circuit(input_size, n_photons, max_modes=20):
     if last_layer > 0:
         c_var = pcvl.Circuit(num_modes)
         l = (num_modes - last_layer) // 2
-        for i in range(last_layer + l):  # 4 input features
+        for i in range(l, last_layer + l):  # 4 input features
             px = pcvl.P(f"px{i}_{k}")
             c_var.add(i, pcvl.PS(px))
         circuit = circuit // c_var
