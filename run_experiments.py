@@ -209,7 +209,7 @@ def main():
     parser.add_argument('--arch', choices=['boson_preprocessor_mlp', 'cnn_boson_mlp',
                                            'boson_layer_nn', 'dual_path_cnn_boson', 'quantum_vit',
                                            'variational_boson_ae', 'boson_decoder', 'classical_vit',
-                                           'classical_cnn'],
+                                           'classical_cnn', 'dual_path_vit_vba'],
                         help='Architecture mode')
     parser.add_argument('--dataset', choices=['mnist', 'emnist', 'kmnist', 'cifar10'],
                         default='cifar10',)
