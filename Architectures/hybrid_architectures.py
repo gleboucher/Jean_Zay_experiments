@@ -649,6 +649,67 @@ class QuantumVisionTransformer(nn.Module):
         return self.head(x)
 
 
+
+class VisionTransformerNoHead(nn.Module):
+    def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
+                 depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2):
+        super().__init__()
+        print(input_size, in_chans)
+        self.quantum = None
+        self.patch_embed = PatchEmbedding(input_size, patch_size, in_chans, embed_dim)
+        num_patches = self.patch_embed.num_patches
+
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
+        self.pos_drop = nn.Dropout(p=dropout_rate)
+
+        self.blocks = nn.ModuleList([
+            TransformerEncoderBlock(embed_dim, num_heads, mlp_ratio, dropout_rate)
+            for _ in range(depth)
+        ])
+
+        self.norm = nn.LayerNorm(embed_dim)
+
+
+        nn.init.trunc_normal_(self.pos_embed, std=0.02)
+        nn.init.trunc_normal_(self.cls_token, std=0.02)
+
+    def forward(self, x):
+        x = self.patch_embed(x)
+        B = x.size(0)
+        cls_tokens = self.cls_token.expand(B, -1, -1)
+        x = torch.cat((cls_tokens, x), dim=1)
+        x = x + self.pos_embed
+        x = self.pos_drop(x)
+        for blk in self.blocks:
+            x = blk(x)
+        x = self.norm(x)
+        return x[:, 0]
+
+
+class DualPathVIT_VBA(nn.Module):
+    def __init__(self, input_dim, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
+                 depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3,
+                 max_modes=32, output_strategy=None, output_size=None):
+        super().__init__()
+        self.vit = VisionTransformerNoHead(input_size=input_size, num_classes=num_classes, patch_size=patch_size,
+                                           in_chans=in_chans, embed_dim=embed_dim, depth=depth,
+                                           num_heads=num_heads, mlp_ratio=mlp_ratio, dropout_rate=dropout_rate)
+        self.vba = Architecture8_Variational_Boson_Autoencoder(
+            input_dim=input_dim, num_classes=embed_dim,
+            dropout_rate=dropout_rate, n_photons=n_photons, max_modes=max_modes,
+            output_strategy=output_strategy, output_size=output_size,
+        )
+        self.head = nn.Linear(2 * embed_dim, num_classes)
+
+    def forward(self, x):
+        x = self.vit(x) + self.vba(x)
+        return self.head(x)
+
+
+
+
+
 class ClassicalVisionTransformer(nn.Module):
     def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
                  depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20,
@@ -758,9 +819,7 @@ def get_architecture(arch_name: str, input_shape: Tuple[int, ...], num_classes: 
         'dual_path_cnn_boson': lambda: Architecture5_DualPath_CNN_Boson(
             input_channels, num_classes, **config
         ),
-        'boson_pca_classifier': lambda: Architecture7_Boson_PCA_Classifier(
-            input_dim, num_classes, **config
-        ),
+
         'variational_boson_ae': lambda: Architecture8_Variational_Boson_Autoencoder(
             input_dim, num_classes, **config
         ),
@@ -770,6 +829,7 @@ def get_architecture(arch_name: str, input_shape: Tuple[int, ...], num_classes: 
 
         'classical_vit': lambda: ClassicalVisionTransformer(input_shape[1], num_classes, in_chans=input_channels, **config),
 
+        'dual_path_vit_vba': lambda: DualPathVIT_VBA(input_dim, input_shape[1], num_classes, in_chans=input_channels, **config),
     }
     
     if arch_name not in architectures:
