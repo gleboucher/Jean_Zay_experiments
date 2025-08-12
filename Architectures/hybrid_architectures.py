@@ -501,7 +501,7 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
             ])
             prev_dim = hidden_dim
         self.encoder = nn.Sequential(*encoder_layers)
-
+        print("max modes", max_modes)
         circuit, input_state = create_quantum_circuit(prev_dim, n_photons, max_modes)
 
 
