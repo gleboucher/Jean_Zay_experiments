@@ -2,6 +2,7 @@
 """
 Example script to run hybrid architecture experiments
 """
+import numpy as np
 from distutils.command.config import config
 
 import torch
@@ -122,9 +123,9 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
         'optimizer': ['adam'],
         'batch_size': [batch_size],
         'dropout_rate': [0.15],
-        'max_modes': [12, 20, 32, 50, 80],
+        'max_modes': [32, 50, 80],
         'n_photons': [3],
-        'output_strategy':[None, "lexgrouping", "modgrouping"],
+        'output_strategy':[None],
         'output_size': [32]
     }
     
@@ -147,6 +148,8 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
     })
     
     all_results = []
+    rand_int = np.random.randint(low=0, high=10000)
+    filename = f'./hyperparameter_search/results_{arch}_{dataset}_{rand_int}.json'
 
     for i, combo in enumerate(combinations):
         hyperparams = dict(zip(keys, combo))
@@ -158,7 +161,7 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
             results = trainer.train_model(arch, dataset, hyperparams)
             all_results.append(results)
             Path('./hyperparameter_search').mkdir(exist_ok=True)
-            with open(f'./hyperparameter_search/results_{arch}_{dataset}.json', 'w') as f:
+            with open(filename, 'w') as f:
                 json.dump(all_results, f, indent=2)
         except Exception as e:
             print(f"Trial failed: {e}")
