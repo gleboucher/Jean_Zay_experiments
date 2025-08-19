@@ -704,7 +704,8 @@ class DualPathVIT_VBA(nn.Module):
         self.quantum = None
 
     def forward(self, x):
-        x = self.vit(x) + self.vba(x)
+        x = torch.cat(self.vit(x), self.vba(x))
+        print(x.shape)
         return self.head(x)
 
     def to(self, device):
