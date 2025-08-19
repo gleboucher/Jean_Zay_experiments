@@ -701,10 +701,20 @@ class DualPathVIT_VBA(nn.Module):
             output_strategy=output_strategy, output_size=output_size,
         )
         self.head = nn.Linear(2 * embed_dim, num_classes)
+        self.quantum = None
 
     def forward(self, x):
         x = self.vit(x) + self.vba(x)
         return self.head(x)
+
+    def to(self, device):
+        # Call parent .to(device) so normal params/buffers are moved
+        self = super().to(device)
+
+        # Manually move extra attributes
+        self.vba.quantum = self.vba.quantum.to(device)
+
+        return self
 
 
 
