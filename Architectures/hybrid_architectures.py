@@ -502,7 +502,7 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
             ])
             prev_dim = hidden_dim
         self.encoder = nn.Sequential(*encoder_layers)
-        print("max modes", max_modes)
+        print("max modes", max_modes, "n_photons", n_photons)
         circuit, input_state = create_quantum_circuit(prev_dim, n_photons, max_modes)
 
 
@@ -725,7 +725,6 @@ class ClassicalVisionTransformer(nn.Module):
                  depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20,
                  output_strategy=None, output_size=None):
         super().__init__()
-        print(input_size, in_chans)
         self.quantum = None
         self.patch_embed = PatchEmbedding(input_size, patch_size, in_chans, embed_dim)
         num_patches = self.patch_embed.num_patches
