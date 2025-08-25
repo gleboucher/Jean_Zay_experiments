@@ -599,7 +599,7 @@ class QuantumVisionTransformer(nn.Module):
                  depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20,
                  output_strategy=None, output_size=None):
         super().__init__()
-        print(input_size, in_chans)
+
         if output_strategy is None:
             output_size = None
         output_strategy = map_output_strategy(output_strategy)
@@ -654,7 +654,7 @@ class VisionTransformerNoHead(nn.Module):
     def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
                  depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2):
         super().__init__()
-        print(input_size, in_chans)
+
         self.quantum = None
         self.patch_embed = PatchEmbedding(input_size, patch_size, in_chans, embed_dim)
         num_patches = self.patch_embed.num_patches
@@ -705,7 +705,6 @@ class DualPathVIT_VBA(nn.Module):
 
     def forward(self, x):
         x = torch.cat((self.vit(x), self.vba(x)), dim=1)
-        print(x.shape)
         return self.head(x)
 
     def to(self, device):
