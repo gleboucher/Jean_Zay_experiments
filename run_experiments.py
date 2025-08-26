@@ -123,8 +123,8 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
         'optimizer': ['adam'],
         'batch_size': [batch_size],
         'dropout_rate': [0.15],
-        'max_modes': [32],
-        'n_photons': [2, 3, 4, 5],
+        'max_modes': [64, 80],
+        'n_photons': [3],
         'output_strategy':[None],
         'output_size': [32]
     }

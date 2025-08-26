@@ -63,7 +63,7 @@ def create_quantum_circuit(input_size, n_photons, max_modes=20):
         last_layer = input_size % num_modes
     input_state = [1] * n_photons + [0] * (num_modes - n_photons)
 
-    print("number of modes", num_modes, "number of reps", k, "input_size", input_size)
+    print("number of modes", num_modes, "number of reps", k, "input_size", input_size, "n_photons", n_photons)
     wl = pcvl.GenericInterferometer(
         num_modes,
         lambda i: pcvl.BS() // pcvl.PS(pcvl.P(f"theta_li{i}")) //
@@ -595,7 +595,7 @@ class TransformerEncoderBlock(nn.Module):
 # Vision Transformer
 # ======================================
 class QuantumVisionTransformer(nn.Module):
-    def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
+    def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=32,
                  depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20,
                  output_strategy=None, output_size=None):
         super().__init__()
