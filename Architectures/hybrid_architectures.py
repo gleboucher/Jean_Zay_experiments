@@ -596,7 +596,7 @@ class TransformerEncoderBlock(nn.Module):
 # Vision Transformer
 # ======================================
 class QuantumVisionTransformer(nn.Module):
-    def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=32,
+    def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
                  depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20,
                  output_strategy=None, output_size=None):
         super().__init__()
