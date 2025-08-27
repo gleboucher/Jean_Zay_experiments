@@ -143,7 +143,7 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
     print(f"Running hyperparameter search with {len(combinations)} combinations...")
     
     trainer = HybridTrainer({
-        'num_epochs': 15,
+        'num_epochs': 30,
         'data_root': './data',
         'num_workers': 0
     })
