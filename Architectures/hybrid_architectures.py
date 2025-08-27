@@ -35,9 +35,10 @@ class MinMaxNorm1d(nn.Module):
             batch_min = x.min(dim=0, keepdim=True).values
             batch_max = x.max(dim=0, keepdim=True).values
 
-            # Update running stats
-            self.running_min = (1 - self.momentum) * self.running_min + self.momentum * batch_min
-            self.running_max = (1 - self.momentum) * self.running_max + self.momentum * batch_max
+            # Update running stats with in-place operations
+            with torch.no_grad():
+                self.running_min.mul_(1 - self.momentum).add_(batch_min, alpha=self.momentum)
+                self.running_max.mul_(1 - self.momentum).add_(batch_max, alpha=self.momentum)
 
             min_val = batch_min
             max_val = batch_max
@@ -615,6 +616,7 @@ class QuantumVisionTransformer(nn.Module):
             TransformerEncoderBlock(embed_dim, num_heads, mlp_ratio, dropout_rate)
             for _ in range(depth)
         ])
+        self.use_checkpoint = True  # Enable gradient checkpointing
 
         circuit, input_state = create_quantum_circuit(embed_dim, n_photons, max_modes)
         self.quantum_norm = MinMaxNorm1d(embed_dim)
@@ -641,8 +643,15 @@ class QuantumVisionTransformer(nn.Module):
         x = torch.cat((cls_tokens, x), dim=1)
         x = x + self.pos_embed
         x = self.pos_drop(x)
-        for blk in self.blocks:
-            x = blk(x)
+        
+        # Use gradient checkpointing for transformer blocks to save memory
+        if self.use_checkpoint and self.training:
+            for blk in self.blocks:
+                x = torch.utils.checkpoint.checkpoint(blk, x, use_reentrant=False)
+        else:
+            for blk in self.blocks:
+                x = blk(x)
+                
         x = self.quantum_norm(x[:, 0])
         x = self.quantum(x)
         x = self.norm(x)

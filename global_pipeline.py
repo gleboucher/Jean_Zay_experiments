@@ -413,6 +413,10 @@ class HybridTrainer:
 
             print(f'Epoch {epoch}: Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%, '
                   f'Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%')
+            
+            # Clear GPU cache after each epoch to prevent memory accumulation
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         
         results['training_time'] = time.time() - start_time
         print(f"Training completed. Best accuracy: {best_accuracy:.2f}%")
