@@ -156,9 +156,9 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
         hyperparams = dict(zip(keys, combo))
         hyperparams['network_depth'] = 3  # Fixed
         arch = hyperparams['arch']
-        del hyperparams['arch']
+
         print(f"\nTrial {i+1}/{len(combinations)}: {hyperparams}")
-        
+        del hyperparams['arch']
         try:
             results = trainer.train_model(arch, dataset, hyperparams)
             all_results.append(results)
