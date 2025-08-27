@@ -504,9 +504,8 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
             prev_dim = hidden_dim
         self.encoder = nn.Sequential(*encoder_layers)
         print("max modes", max_modes, "n_photons", n_photons)
-        circuit, input_state = create_quantum_circuit(self.repeat * prev_dim, n_photons, max_modes)
         self.repeat = max_modes // prev_dim
-
+        circuit, input_state = create_quantum_circuit(self.repeat * prev_dim, n_photons, max_modes)
 
         self.quantum_norm = MinMaxNorm1d(prev_dim)
         self.quantum = QuantumLayer(
@@ -598,7 +597,7 @@ class TransformerEncoderBlock(nn.Module):
 # Vision Transformer
 # ======================================
 class QuantumVisionTransformer(nn.Module):
-    def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=,
+    def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=32,
                  depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20,
                  output_strategy=None, output_size=None):
         super().__init__()
