@@ -127,7 +127,7 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
         'n_photons': [3],
         'output_strategy':[None],
         'output_size': [32],
-        'arch': ['quantum_vit', 'variational_boson_ae', 'dual_path_vit_vba']
+        'arch': ['dual_path_vit_vba', 'variational_boson_ae', 'quantum_vit']
     }
     
     # Generate all combinations
