@@ -123,10 +123,11 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
         'optimizer': ['adam'],
         'batch_size': [batch_size],
         'dropout_rate': [0.15],
-        'max_modes': [32],
+        'max_modes': [32, 64, 96, 128],
         'n_photons': [3],
         'output_strategy':[None],
-        'output_size': [32]
+        'output_size': [32],
+        'arch': ['quantum_vit', 'variational_boson_ae', 'dual_path_vit_vba']
     }
     
     # Generate all combinations
@@ -154,7 +155,8 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
     for i, combo in enumerate(combinations):
         hyperparams = dict(zip(keys, combo))
         hyperparams['network_depth'] = 3  # Fixed
-        
+        arch = hyperparams['arch']
+        del hyperparams['arch']
         print(f"\nTrial {i+1}/{len(combinations)}: {hyperparams}")
         
         try:

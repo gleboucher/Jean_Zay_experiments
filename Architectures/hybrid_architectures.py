@@ -504,12 +504,13 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
             prev_dim = hidden_dim
         self.encoder = nn.Sequential(*encoder_layers)
         print("max modes", max_modes, "n_photons", n_photons)
-        circuit, input_state = create_quantum_circuit(prev_dim, n_photons, max_modes)
+        circuit, input_state = create_quantum_circuit(self.repeat * prev_dim, n_photons, max_modes)
+        self.repeat = max_modes // prev_dim
 
 
         self.quantum_norm = MinMaxNorm1d(prev_dim)
         self.quantum = QuantumLayer(
-            input_size=prev_dim,
+            input_size=self.repeat * prev_dim,
             output_size=output_size,
             circuit=circuit,
             input_state=input_state,  # Random Initial quantum state used only for initialization
@@ -539,6 +540,7 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
         x = x.view(batch_size, -1)
         x = self.input_norm(x)
         encoded = self.encoder(x)
+        encoded = torch.repeat_interleave(encoded, repeats=self.repeat, dim=1)
         encoded = self.quantum_norm(encoded)
         latent = self.quantum(encoded)
         return self.decoder(latent)
@@ -596,7 +598,7 @@ class TransformerEncoderBlock(nn.Module):
 # Vision Transformer
 # ======================================
 class QuantumVisionTransformer(nn.Module):
-    def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=64,
+    def __init__(self, input_size=32, num_classes=10, patch_size=4, in_chans=3, embed_dim=,
                  depth=6, num_heads=8, mlp_ratio=4.0, dropout_rate=0.2, n_photons=3, max_modes=20,
                  output_strategy=None, output_size=None):
         super().__init__()
@@ -617,11 +619,11 @@ class QuantumVisionTransformer(nn.Module):
             for _ in range(depth)
         ])
         self.use_checkpoint = True  # Enable gradient checkpointing
-
-        circuit, input_state = create_quantum_circuit(embed_dim, n_photons, max_modes)
+        self.repeat = max_modes // embed_dim
+        circuit, input_state = create_quantum_circuit(self.repeat*embed_dim, n_photons, max_modes)
         self.quantum_norm = MinMaxNorm1d(embed_dim)
         self.quantum = QuantumLayer(
-            input_size=embed_dim,
+            input_size=self.repeat * embed_dim,
             output_size=output_size,
             circuit=circuit,
             input_state=input_state,  # Random Initial quantum state used only for initialization
@@ -653,6 +655,7 @@ class QuantumVisionTransformer(nn.Module):
                 x = blk(x)
                 
         x = self.quantum_norm(x[:, 0])
+        x = torch.repeat_interleave(x, repeats=self.repeat, dim=1)
         x = self.quantum(x)
         x = self.norm(x)
         return self.head(x)
