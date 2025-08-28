@@ -123,7 +123,7 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
         'optimizer': ['adam'],
         'batch_size': [batch_size],
         'dropout_rate': [0.15],
-        'max_modes': [32, 64, 96, 128],
+        'max_modes': [96, 128],
         'n_photons': [3],
         'output_strategy':[None],
         'output_size': [32],
@@ -150,7 +150,7 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
     
     all_results = []
     rand_int = np.random.randint(low=0, high=10000)
-    filename = f'./hyperparameter_search/results_{arch}_{dataset}_{rand_int}.json'
+    filename = f'./experiments/results_{arch}_{dataset}_{rand_int}.json'
 
     for i, combo in enumerate(combinations):
         hyperparams = dict(zip(keys, combo))
