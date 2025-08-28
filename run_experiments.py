@@ -162,7 +162,7 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
         try:
             results = trainer.train_model(arch, dataset, hyperparams)
             all_results.append(results)
-            Path('./hyperparameter_search').mkdir(exist_ok=True)
+            Path('./experiments').mkdir(exist_ok=True)
             with open(filename, 'w') as f:
                 json.dump(all_results, f, indent=2)
         except Exception as e:

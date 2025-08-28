@@ -539,8 +539,8 @@ class Architecture8_Variational_Boson_Autoencoder(nn.Module):
         x = x.view(batch_size, -1)
         x = self.input_norm(x)
         encoded = self.encoder(x)
-        encoded = torch.repeat_interleave(encoded, repeats=self.repeat, dim=1)
         encoded = self.quantum_norm(encoded)
+        encoded = torch.repeat_interleave(encoded, repeats=self.repeat, dim=1)
         latent = self.quantum(encoded)
         return self.decoder(latent)
 
