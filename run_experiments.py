@@ -124,10 +124,10 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
         'batch_size': [batch_size],
         'dropout_rate': [0.15],
         'max_modes': [32],
-        'n_photons': [3],
-        'output_strategy':[None, "lexgrouping", "modgrouping"],
+        'n_photons': [5],
+        'output_strategy':[None],
         'output_size': [32],
-        'arch': ['dual_path_vit_vba', 'variational_boson_ae', 'quantum_vit']
+        'arch': ['variational_boson_ae', 'quantum_vit']
     }
     
     # Generate all combinations
@@ -143,7 +143,7 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
     print(f"Running hyperparameter search with {len(combinations)} combinations...")
     
     trainer = HybridTrainer({
-        'num_epochs': 30,
+        'num_epochs': 20,
         'data_root': './data',
         'num_workers': 0
     })
