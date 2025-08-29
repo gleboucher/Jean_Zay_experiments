@@ -54,7 +54,6 @@ class MinMaxNorm1d(nn.Module):
 
 def create_quantum_circuit(input_size, n_photons, max_modes=20):
     # 1. Left interferometer - trainable transformation
-
     k = input_size // max_modes
     if k == 0:
         num_modes = max_modes

@@ -123,9 +123,9 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
         'optimizer': ['adam'],
         'batch_size': [batch_size],
         'dropout_rate': [0.15],
-        'max_modes': [96, 128],
+        'max_modes': [32],
         'n_photons': [3],
-        'output_strategy':[None],
+        'output_strategy':[None, "lexgrouping", "modgrouping"],
         'output_size': [32],
         'arch': ['dual_path_vit_vba', 'variational_boson_ae', 'quantum_vit']
     }
@@ -150,7 +150,7 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
     
     all_results = []
     rand_int = np.random.randint(low=0, high=10000)
-    filename = f'./experiments/results_{arch}_{dataset}_{rand_int}.json'
+    filename = f'./experiments_grouping/results_{arch}_{dataset}_{rand_int}.json'
 
     for i, combo in enumerate(combinations):
         hyperparams = dict(zip(keys, combo))
@@ -162,7 +162,7 @@ def hyperparameter_search(gpu, arch, dataset, batch_size):
         try:
             results = trainer.train_model(arch, dataset, hyperparams)
             all_results.append(results)
-            Path('./experiments').mkdir(exist_ok=True)
+            Path('./experiments_grouping').mkdir(exist_ok=True)
             with open(filename, 'w') as f:
                 json.dump(all_results, f, indent=2)
         except Exception as e:
