@@ -618,10 +618,10 @@ class QuantumVisionTransformer(nn.Module):
         ])
         self.use_checkpoint = True  # Enable gradient checkpointing
         self.repeat = max_modes // embed_dim
-        circuit, input_state = create_quantum_circuit(self.repeat*embed_dim, n_photons, max_modes)
+        circuit, input_state = create_quantum_circuit(embed_dim, n_photons, max_modes)
         self.quantum_norm = MinMaxNorm1d(embed_dim)
         self.quantum = QuantumLayer(
-            input_size=self.repeat * embed_dim,
+            input_size=embed_dim,
             output_size=output_size,
             circuit=circuit,
             input_state=input_state,  # Random Initial quantum state used only for initialization
@@ -653,7 +653,7 @@ class QuantumVisionTransformer(nn.Module):
                 x = blk(x)
                 
         x = self.quantum_norm(x[:, 0])
-        x = torch.repeat_interleave(x, repeats=self.repeat, dim=1)
+        #x = torch.repeat_interleave(x, repeats=self.repeat, dim=1)
         x = self.quantum(x)
         x = self.norm(x)
         return self.head(x)
